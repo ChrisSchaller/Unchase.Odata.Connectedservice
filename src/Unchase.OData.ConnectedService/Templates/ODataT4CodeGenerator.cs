@@ -1997,31 +1997,6 @@ public abstract class ODataClientTemplate : TemplateBase
             current = (IEdmEntityType)current.BaseType;
         }
 
-        if (context.GenerateActionInputWrapperClasses)
-        {
-            // if this type has bound actions that accept parameters, then we need to write a type definition as a request object for each action.
-            // NOTE: we write these as nested classes to reduce the possibility of name and structure clashes.
-            // If your API design has multiple actions with the same signature, you should implement a structured type at the API level, don't try to be too smart on the client generation.
-            foreach( var action in actions)
-            { 
-                string subTypeName = $"{action name}_Request";
-                this.WriteSummaryCommentForStructuredType(entityTypeName + this.WrappedActionClassSuffix);
-                this.WriteStructuredTypeDeclaration(entityTypeName,
-                    this.ClassInheritMarker + string.Format(this.DataServiceQuerySingleStructureTemplate, GetFixedName(entityTypeName)),
-                    this.SingleSuffix);
-                string singleTypeName = (this.context.EnableNamingAlias ?
-                    Customization.CustomizeNaming(((IEdmSchemaElement)entityType).Name) : ((IEdmSchemaElement)entityType).Name) + this.SingleSuffix;
-                this.WriteConstructorForSingleType(GetFixedName(singleTypeName), string.Format(this.DataServiceQuerySingleStructureTemplate, GetFixedName(entityTypeName)));
-                IEdmEntityType current = entityType;
-                while (current != null)
-                {
-                    this.WritePropertiesForSingleType(current.DeclaredProperties);
-                    current = (IEdmEntityType)current.BaseType;
-                }
-                this.WriteClassEndForStructuredType();
-            }
-        }
-
         this.WriteClassEndForStructuredType();
 
         this.WriteSummaryCommentForStructuredType(this.context.EnableNamingAlias ? Customization.CustomizeNaming(entityType.Name) : entityType.Name);
@@ -3418,93 +3393,93 @@ internal static class Utils
     }
 }
 
-public sealed class ODataClientCSharpTemplate : ODataClientTemplate
-{
-    /// <summary>
-    /// Creates an instance of the ODataClientTemplate.
-    /// </summary>
-    /// <param name="context">The code generation context.</param>
-    public ODataClientCSharpTemplate(CodeGenerationContext context)
-        : base(context)
-    {
-    }
-
-    internal override string GlobalPrefix => "global::";
-    internal override string SystemTypeTypeName => "global::System.Type";
-    internal override string AbstractModifier => " abstract";
-    internal override string DataServiceActionQueryTypeName => "global::Microsoft.OData.Client.DataServiceActionQuery";
-    internal override string DataServiceActionQuerySingleOfTStructureTemplate => "global::Microsoft.OData.Client.DataServiceActionQuerySingle<{0}>";
-    internal override string DataServiceActionQueryOfTStructureTemplate => "global::Microsoft.OData.Client.DataServiceActionQuery<{0}>";
-    internal override string NotifyPropertyChangedModifier => "global::System.ComponentModel.INotifyPropertyChanged";
-    internal override string ClassInheritMarker => " : ";
-    internal override string ParameterSeparator => ", \r\n                    ";
-    internal override string KeyParameterSeparator => ", \r\n            ";
-    internal override string KeyDictionaryItemSeparator => ", \r\n                ";
-    internal override string SystemNullableStructureTemplate => "global::System.Nullable<{0}>";
-    internal override string ICollectionOfTStructureTemplate => "global::System.Collections.Generic.ICollection<{0}>";
-    internal override string DataServiceCollectionStructureTemplate => "global::Microsoft.OData.Client.DataServiceCollection<{0}>";
-    internal override string DataServiceQueryStructureTemplate => "global::Microsoft.OData.Client.DataServiceQuery<{0}>";
-    internal override string DataServiceQuerySingleStructureTemplate => "global::Microsoft.OData.Client.DataServiceQuerySingle<{0}>";
-    internal override string ObservableCollectionStructureTemplate => "global::System.Collections.ObjectModel.ObservableCollection<{0}>";
-    internal override string ObjectModelCollectionStructureTemplate => "global::System.Collections.ObjectModel.Collection<{0}>";
-    internal override string DataServiceCollectionConstructorParameters => "(null, global::Microsoft.OData.Client.TrackingMode.None)";
-    internal override string NewModifier => "new ";
-    internal override string GeoTypeInitializePattern => "global::Microsoft.Spatial.SpatialImplementation.CurrentImplementation.CreateWellKnownTextSqlFormatter(false).Read<{0}>(new global::System.IO.StringReader(\"{1}\"))";
-    internal override string Int32TypeName => "int";
-    internal override string ObjectTypeName => "object";
-    internal override string StringTypeName => "string";
-    internal override string BinaryTypeName => "byte[]";
-    internal override string DecimalTypeName => "decimal";
-    internal override string Int16TypeName => "short";
-    internal override string SingleTypeName => "float";
-    internal override string BooleanTypeName => "bool";
-    internal override string DoubleTypeName => "double";
-    internal override string GuidTypeName => "global::System.Guid";
-    internal override string ByteTypeName => "byte";
-    internal override string Int64TypeName => "long";
-    internal override string SByteTypeName => "sbyte";
-    internal override string DataServiceStreamLinkTypeName => "global::Microsoft.OData.Client.DataServiceStreamLink";
-    internal override string GeographyTypeName => "global::Microsoft.Spatial.Geography";
-    internal override string GeographyPointTypeName => "global::Microsoft.Spatial.GeographyPoint";
-    internal override string GeographyLineStringTypeName => "global::Microsoft.Spatial.GeographyLineString";
-    internal override string GeographyPolygonTypeName => "global::Microsoft.Spatial.GeographyPolygon";
-    internal override string GeographyCollectionTypeName => "global::Microsoft.Spatial.GeographyCollection";
-    internal override string GeographyMultiPolygonTypeName => "global::Microsoft.Spatial.GeographyMultiPolygon";
-    internal override string GeographyMultiLineStringTypeName => "global::Microsoft.Spatial.GeographyMultiLineString";
-    internal override string GeographyMultiPointTypeName => "global::Microsoft.Spatial.GeographyMultiPoint";
-    internal override string GeometryTypeName => "global::Microsoft.Spatial.Geometry";
-    internal override string GeometryPointTypeName => "global::Microsoft.Spatial.GeometryPoint";
-    internal override string GeometryLineStringTypeName => "global::Microsoft.Spatial.GeometryLineString";
-    internal override string GeometryPolygonTypeName => "global::Microsoft.Spatial.GeometryPolygon";
-    internal override string GeometryCollectionTypeName => "global::Microsoft.Spatial.GeometryCollection";
-    internal override string GeometryMultiPolygonTypeName => "global::Microsoft.Spatial.GeometryMultiPolygon";
-    internal override string GeometryMultiLineStringTypeName => "global::Microsoft.Spatial.GeometryMultiLineString";
-    internal override string GeometryMultiPointTypeName => "global::Microsoft.Spatial.GeometryMultiPoint";
-    internal override string DateTypeName => "global::Microsoft.OData.Edm.Date";
-    internal override string DateTimeOffsetTypeName => "global::System.DateTimeOffset";
-    internal override string DurationTypeName => "global::System.TimeSpan";
-    internal override string TimeOfDayTypeName => "global::Microsoft.OData.Edm.TimeOfDay";
-    internal override string XmlConvertClassName => "global::System.Xml.XmlConvert";
-    internal override string EnumTypeName => "global::System.Enum";
-    internal override string DictionaryTypeName => "global::System.Collections.Generic.Dictionary<{0}, {1}>";
-    internal override string FixPattern => "@{0}";
-    internal override string EnumUnderlyingTypeMarker => " : ";
-    internal override string ConstantExpressionConstructorWithType => "global::System.Linq.Expressions.Expression.Constant({0}, typeof({1}))";
-    internal override string TypeofFormatter => "typeof({0})";
-    internal override string UriOperationParameterConstructor => "new global::Microsoft.OData.Client.UriOperationParameter(\"{0}\", {1})";
-    internal override string UriEntityOperationParameterConstructor => "new global::Microsoft.OData.Client.UriEntityOperationParameter(\"{0}\", {1}, {2})";
-    internal override string BodyOperationParameterConstructor => "new global::Microsoft.OData.Client.BodyOperationParameter(\"{0}\", {1})";
-    internal override string DictionaryConstructor => $"new {DictionaryTypeName}()";
-    internal override string BaseEntityType => " : global::Microsoft.OData.Client.BaseEntityType";
-    internal override string OverloadsModifier => "new ";
-    internal override string ODataVersion => "global::Microsoft.OData.ODataVersion.V4";
-    internal override string ParameterDeclarationTemplate => "{0} {1}";
-    internal override string DictionaryItemConstructor => "{{ {0}, {1} }}";
-
-    internal override HashSet<string> LanguageKeywords { get {
-        if (CSharpKeywords == null)
+        public sealed class ODataClientCSharpTemplate : ODataClientTemplate
         {
-            CSharpKeywords = new HashSet<string>(StringComparer.Ordinal)
+            /// <summary>
+            /// Creates an instance of the ODataClientTemplate.
+            /// </summary>
+            /// <param name="context">The code generation context.</param>
+            public ODataClientCSharpTemplate(CodeGenerationContext context)
+                : base(context)
+            {
+            }
+
+            internal override string GlobalPrefix => "global::";
+            internal override string SystemTypeTypeName => "global::System.Type";
+            internal override string AbstractModifier => " abstract";
+            internal override string DataServiceActionQueryTypeName => "global::Microsoft.OData.Client.DataServiceActionQuery";
+            internal override string DataServiceActionQuerySingleOfTStructureTemplate => "global::Microsoft.OData.Client.DataServiceActionQuerySingle<{0}>";
+            internal override string DataServiceActionQueryOfTStructureTemplate => "global::Microsoft.OData.Client.DataServiceActionQuery<{0}>";
+            internal override string NotifyPropertyChangedModifier => "global::System.ComponentModel.INotifyPropertyChanged";
+            internal override string ClassInheritMarker => " : ";
+            internal override string ParameterSeparator => ", \r\n                    ";
+            internal override string KeyParameterSeparator => ", \r\n            ";
+            internal override string KeyDictionaryItemSeparator => ", \r\n                ";
+            internal override string SystemNullableStructureTemplate => "global::System.Nullable<{0}>";
+            internal override string ICollectionOfTStructureTemplate => "global::System.Collections.Generic.ICollection<{0}>";
+            internal override string DataServiceCollectionStructureTemplate => "global::Microsoft.OData.Client.DataServiceCollection<{0}>";
+            internal override string DataServiceQueryStructureTemplate => "global::Microsoft.OData.Client.DataServiceQuery<{0}>";
+            internal override string DataServiceQuerySingleStructureTemplate => "global::Microsoft.OData.Client.DataServiceQuerySingle<{0}>";
+            internal override string ObservableCollectionStructureTemplate => "global::System.Collections.ObjectModel.ObservableCollection<{0}>";
+            internal override string ObjectModelCollectionStructureTemplate => "global::System.Collections.ObjectModel.Collection<{0}>";
+            internal override string DataServiceCollectionConstructorParameters => "(null, global::Microsoft.OData.Client.TrackingMode.None)";
+            internal override string NewModifier => "new ";
+            internal override string GeoTypeInitializePattern => "global::Microsoft.Spatial.SpatialImplementation.CurrentImplementation.CreateWellKnownTextSqlFormatter(false).Read<{0}>(new global::System.IO.StringReader(\"{1}\"))";
+            internal override string Int32TypeName => "int";
+            internal override string ObjectTypeName => "object";
+            internal override string StringTypeName => "string";
+            internal override string BinaryTypeName => "byte[]";
+            internal override string DecimalTypeName => "decimal";
+            internal override string Int16TypeName => "short";
+            internal override string SingleTypeName => "float";
+            internal override string BooleanTypeName => "bool";
+            internal override string DoubleTypeName => "double";
+            internal override string GuidTypeName => "global::System.Guid";
+            internal override string ByteTypeName => "byte";
+            internal override string Int64TypeName => "long";
+            internal override string SByteTypeName => "sbyte";
+            internal override string DataServiceStreamLinkTypeName => "global::Microsoft.OData.Client.DataServiceStreamLink";
+            internal override string GeographyTypeName => "global::Microsoft.Spatial.Geography";
+            internal override string GeographyPointTypeName => "global::Microsoft.Spatial.GeographyPoint";
+            internal override string GeographyLineStringTypeName => "global::Microsoft.Spatial.GeographyLineString";
+            internal override string GeographyPolygonTypeName => "global::Microsoft.Spatial.GeographyPolygon";
+            internal override string GeographyCollectionTypeName => "global::Microsoft.Spatial.GeographyCollection";
+            internal override string GeographyMultiPolygonTypeName => "global::Microsoft.Spatial.GeographyMultiPolygon";
+            internal override string GeographyMultiLineStringTypeName => "global::Microsoft.Spatial.GeographyMultiLineString";
+            internal override string GeographyMultiPointTypeName => "global::Microsoft.Spatial.GeographyMultiPoint";
+            internal override string GeometryTypeName => "global::Microsoft.Spatial.Geometry";
+            internal override string GeometryPointTypeName => "global::Microsoft.Spatial.GeometryPoint";
+            internal override string GeometryLineStringTypeName => "global::Microsoft.Spatial.GeometryLineString";
+            internal override string GeometryPolygonTypeName => "global::Microsoft.Spatial.GeometryPolygon";
+            internal override string GeometryCollectionTypeName => "global::Microsoft.Spatial.GeometryCollection";
+            internal override string GeometryMultiPolygonTypeName => "global::Microsoft.Spatial.GeometryMultiPolygon";
+            internal override string GeometryMultiLineStringTypeName => "global::Microsoft.Spatial.GeometryMultiLineString";
+            internal override string GeometryMultiPointTypeName => "global::Microsoft.Spatial.GeometryMultiPoint";
+            internal override string DateTypeName => "global::Microsoft.OData.Edm.Date";
+            internal override string DateTimeOffsetTypeName => "global::System.DateTimeOffset";
+            internal override string DurationTypeName => "global::System.TimeSpan";
+            internal override string TimeOfDayTypeName => "global::Microsoft.OData.Edm.TimeOfDay";
+            internal override string XmlConvertClassName => "global::System.Xml.XmlConvert";
+            internal override string EnumTypeName => "global::System.Enum";
+            internal override string DictionaryTypeName => "global::System.Collections.Generic.Dictionary<{0}, {1}>";
+            internal override string FixPattern => "@{0}";
+            internal override string EnumUnderlyingTypeMarker => " : ";
+            internal override string ConstantExpressionConstructorWithType => "global::System.Linq.Expressions.Expression.Constant({0}, typeof({1}))";
+            internal override string TypeofFormatter => "typeof({0})";
+            internal override string UriOperationParameterConstructor => "new global::Microsoft.OData.Client.UriOperationParameter(\"{0}\", {1})";
+            internal override string UriEntityOperationParameterConstructor => "new global::Microsoft.OData.Client.UriEntityOperationParameter(\"{0}\", {1}, {2})";
+            internal override string BodyOperationParameterConstructor => "new global::Microsoft.OData.Client.BodyOperationParameter(\"{0}\", {1})";
+            internal override string DictionaryConstructor => $"new {DictionaryTypeName}()";
+            internal override string BaseEntityType => " : global::Microsoft.OData.Client.BaseEntityType";
+            internal override string OverloadsModifier => "new ";
+            internal override string ODataVersion => "global::Microsoft.OData.ODataVersion.V4";
+            internal override string ParameterDeclarationTemplate => "{0} {1}";
+            internal override string DictionaryItemConstructor => "{{ {0}, {1} }}";
+
+            internal override HashSet<string> LanguageKeywords { get {
+                    if (CSharpKeywords == null)
+                    {
+                        CSharpKeywords = new HashSet<string>(StringComparer.Ordinal)
             {
                 "abstract", "as", "base", "byte", "bool", "break", "case", "catch", "char", "checked", "class", "const", "continue",
                 "decimal", "default", "delegate", "do", "double", "else", "enum", "event", "explicit", "extern", "false", "for",
@@ -3514,644 +3489,644 @@ public sealed class ODataClientCSharpTemplate : ODataClientTemplate
                 "this", "throw", "true", "try", "typeof", "uint", "ulong", "unchecked", "unsafe", "ushort", "using", "virtual", "volatile",
                 "void", "while"
             };
-        }
-        return CSharpKeywords;
-    } }
-    private HashSet<string> CSharpKeywords;
+                    }
+                    return CSharpKeywords;
+                } }
+            private HashSet<string> CSharpKeywords;
 
-    internal override void WriteFileHeader()
-    {
+            internal override void WriteFileHeader()
+            {
 
-this.Write("//------------------------------------------------------------------------------\r" +
-        "\n// <auto-generated>\r\n//     This code was generated by a tool.\r\n//     Runtime " +
-        "Version:");
+                this.Write("//------------------------------------------------------------------------------\r" +
+                        "\n// <auto-generated>\r\n//     This code was generated by a tool.\r\n//     Runtime " +
+                        "Version:");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(Environment.Version));
+                this.Write(this.ToStringHelper.ToStringWithCulture(Environment.Version));
 
-this.Write("\r\n//\r\n//     Changes to this file may cause incorrect behavior and will be lost i" +
-        "f\r\n//     the code is regenerated.\r\n// </auto-generated>\r\n//--------------------" +
-        "----------------------------------------------------------\r\n\r\n// Generation date" +
-        ": ");
+                this.Write("\r\n//\r\n//     Changes to this file may cause incorrect behavior and will be lost i" +
+                        "f\r\n//     the code is regenerated.\r\n// </auto-generated>\r\n//--------------------" +
+                        "----------------------------------------------------------\r\n\r\n// Generation date" +
+                        ": ");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(DateTime.Now.ToString(global::System.Globalization.CultureInfo.CurrentCulture)));
+                this.Write(this.ToStringHelper.ToStringWithCulture(DateTime.Now.ToString(global::System.Globalization.CultureInfo.CurrentCulture)));
 
-this.Write("\r\n");
+                this.Write("\r\n");
 
-        if(this.context.UseAsyncDataServiceCollection)
-        { 
-this.Write("using System.Linq;");
-this.Write("\r\n");
-        }
+                if (this.context.UseAsyncDataServiceCollection)
+                {
+                    this.Write("using System.Linq;");
+                    this.Write("\r\n");
+                }
 
-    }
+            }
 
-    internal override void WriteNamespaceStart(string fullNamespace)
-    {
+            internal override void WriteNamespaceStart(string fullNamespace)
+            {
 
-this.Write("namespace ");
+                this.Write("namespace ");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(fullNamespace));
+                this.Write(this.ToStringHelper.ToStringWithCulture(fullNamespace));
 
-this.Write("\r\n{\r\n");
-
-
-    }
-
-    internal override void WriteClassStartForEntityContainer(string originalContainerName, string containerName, string fixedContainerName)
-    {
-
-this.Write("    /// <summary>\r\n    /// There are no comments for ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(containerName));
-
-this.Write(" in the schema.\r\n    /// </summary>\r\n");
+                this.Write("\r\n{\r\n");
 
 
-        if (this.context.EnableNamingAlias)
-        {
+            }
 
-this.Write("    [global::Microsoft.OData.Client.OriginalNameAttribute(\"");
+            internal override void WriteClassStartForEntityContainer(string originalContainerName, string containerName, string fixedContainerName)
+            {
 
-this.Write(this.ToStringHelper.ToStringWithCulture(originalContainerName));
+                this.Write("    /// <summary>\r\n    /// There are no comments for ");
 
-this.Write("\")]\r\n");
+                this.Write(this.ToStringHelper.ToStringWithCulture(containerName));
 
-
-        }
-
-this.Write("    public partial class ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(fixedContainerName));
-
-this.Write(" : global::Microsoft.OData.Client.DataServiceContext\r\n    {\r\n");
+                this.Write(" in the schema.\r\n    /// </summary>\r\n");
 
 
-    }
+                if (this.context.EnableNamingAlias)
+                {
 
-    internal override void WriteMethodStartForEntityContainerConstructor(string containerName, string fixedContainerName)
-    {
+                    this.Write("    [global::Microsoft.OData.Client.OriginalNameAttribute(\"");
 
-this.Write("        /// <summary>\r\n        /// Initialize a new ");
+                    this.Write(this.ToStringHelper.ToStringWithCulture(originalContainerName));
 
-this.Write(this.ToStringHelper.ToStringWithCulture(containerName));
-
-this.Write(" object.\r\n        /// </summary>\r\n        [global::System.CodeDom.Compiler.Genera" +
-        "tedCodeAttribute(\"Microsoft.OData.Client.Design.T4\", \"");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
-
-this.Write("\")]\r\n        public ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(fixedContainerName));
-
-this.Write("(global::System.Uri serviceRoot) : \r\n                base(serviceRoot, global::Mi" +
-        "crosoft.OData.Client.ODataProtocolVersion.V4)\r\n        {\r\n");
+                    this.Write("\")]\r\n");
 
 
-    }
-    
-    internal override void WriteKeyAsSegmentUrlConvention()
-    {
+                }
 
-this.Write("            this.UrlKeyDelimiter = global::Microsoft.OData.Client.DataServiceUrlK" +
-        "eyDelimiter.Slash;\r\n");
+                this.Write("    public partial class ");
 
+                this.Write(this.ToStringHelper.ToStringWithCulture(fixedContainerName));
 
-    }
-
-    internal override void WriteInitializeResolveName()
-    {
-
-this.Write("            this.ResolveName = new global::System.Func<global::System.Type, strin" +
-        "g>(this.ResolveNameFromType);\r\n");
+                this.Write(" : global::Microsoft.OData.Client.DataServiceContext\r\n    {\r\n");
 
 
-    }
+            }
 
-    internal override void WriteInitializeResolveType()
-    {
+            internal override void WriteMethodStartForEntityContainerConstructor(string containerName, string fixedContainerName)
+            {
 
-this.Write("            this.ResolveType = new global::System.Func<string, global::System.Typ" +
-        "e>(this.ResolveTypeFromName);\r\n");
+                this.Write("        /// <summary>\r\n        /// Initialize a new ");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(containerName));
+
+                this.Write(" object.\r\n        /// </summary>\r\n        [global::System.CodeDom.Compiler.Genera" +
+                        "tedCodeAttribute(\"Microsoft.OData.Client.Design.T4\", \"");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
+
+                this.Write("\")]\r\n        public ");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(fixedContainerName));
+
+                this.Write("(global::System.Uri serviceRoot) : \r\n                base(serviceRoot, global::Mi" +
+                        "crosoft.OData.Client.ODataProtocolVersion.V4)\r\n        {\r\n");
 
 
-    }
+            }
 
-    internal override void WriteClassEndForEntityContainerConstructor()
-    {
+            internal override void WriteKeyAsSegmentUrlConvention()
+            {
 
-this.Write("            this.OnContextCreated();\r\n            this.Format.LoadServiceModel = " +
-        "GeneratedEdmModel.GetInstance;\r\n            this.Format.UseJson();\r\n        }\r\n " +
-        "       partial void OnContextCreated();\r\n");
+                this.Write("            this.UrlKeyDelimiter = global::Microsoft.OData.Client.DataServiceUrlK" +
+                        "eyDelimiter.Slash;\r\n");
 
 
-    }
+            }
 
-    internal override void WriteMethodStartForResolveTypeFromName()
-    {
+            internal override void WriteInitializeResolveName()
+            {
 
-this.Write(@"        /// <summary>
+                this.Write("            this.ResolveName = new global::System.Func<global::System.Type, strin" +
+                        "g>(this.ResolveNameFromType);\r\n");
+
+
+            }
+
+            internal override void WriteInitializeResolveType()
+            {
+
+                this.Write("            this.ResolveType = new global::System.Func<string, global::System.Typ" +
+                        "e>(this.ResolveTypeFromName);\r\n");
+
+
+            }
+
+            internal override void WriteClassEndForEntityContainerConstructor()
+            {
+
+                this.Write("            this.OnContextCreated();\r\n            this.Format.LoadServiceModel = " +
+                        "GeneratedEdmModel.GetInstance;\r\n            this.Format.UseJson();\r\n        }\r\n " +
+                        "       partial void OnContextCreated();\r\n");
+
+
+            }
+
+            internal override void WriteMethodStartForResolveTypeFromName()
+            {
+
+                this.Write(@"        /// <summary>
         /// Since the namespace configured for this service reference
         /// in Visual Studio is different from the one indicated in the
         /// server schema, use type-mappers to map between the two.
         /// </summary>
         [global::System.CodeDom.Compiler.GeneratedCodeAttribute(""Microsoft.OData.Client.Design.T4"", """);
 
-this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
+                this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
 
-this.Write("\")]\r\n        protected global::System.Type ResolveTypeFromName(string typeName)\r\n" +
-        "        {\r\n");
-
-
-    }
-
-    internal override void WriteResolveNamespace(string typeName, string fullNamespace, string languageDependentNamespace)
-    {
-
-this.Write("            ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(typeName));
-
-this.Write("resolvedType = this.DefaultResolveType(typeName, \"");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(fullNamespace));
-
-this.Write("\", \"");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(languageDependentNamespace));
-
-this.Write("\");\r\n            if ((resolvedType != null))\r\n            {\r\n                retu" +
-        "rn resolvedType;\r\n            }\r\n");
+                this.Write("\")]\r\n        protected global::System.Type ResolveTypeFromName(string typeName)\r\n" +
+                        "        {\r\n");
 
 
-    }
+            }
 
-    internal override void WriteMethodEndForResolveTypeFromName()
-    {
+            internal override void WriteResolveNamespace(string typeName, string fullNamespace, string languageDependentNamespace)
+            {
 
-this.Write("            return null;\r\n        }\r\n");
+                this.Write("            ");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(typeName));
+
+                this.Write("resolvedType = this.DefaultResolveType(typeName, \"");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(fullNamespace));
+
+                this.Write("\", \"");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(languageDependentNamespace));
+
+                this.Write("\");\r\n            if ((resolvedType != null))\r\n            {\r\n                retu" +
+                        "rn resolvedType;\r\n            }\r\n");
 
 
-    }
-        
-    internal override void WritePropertyRootNamespace(string containerName, string fullNamespace)
-    {
+            }
 
-    }
+            internal override void WriteMethodEndForResolveTypeFromName()
+            {
 
-    internal override void WriteMethodStartForResolveNameFromType(string containerName, string fullNamespace)
-    {
+                this.Write("            return null;\r\n        }\r\n");
 
-this.Write(@"        /// <summary>
+
+            }
+
+            internal override void WritePropertyRootNamespace(string containerName, string fullNamespace)
+            {
+
+            }
+
+            internal override void WriteMethodStartForResolveNameFromType(string containerName, string fullNamespace)
+            {
+
+                this.Write(@"        /// <summary>
         /// Since the namespace configured for this service reference
         /// in Visual Studio is different from the one indicated in the
         /// server schema, use type-mappers to map between the two.
         /// </summary>
         [global::System.CodeDom.Compiler.GeneratedCodeAttribute(""Microsoft.OData.Client.Design.T4"", """);
 
-this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
+                this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
 
-this.Write("\")]\r\n        protected string ResolveNameFromType(global::System.Type clientType)" +
-        "\r\n        {\r\n");
+                this.Write("\")]\r\n        protected string ResolveNameFromType(global::System.Type clientType)" +
+                        "\r\n        {\r\n");
 
 
-        if (this.context.EnableNamingAlias)
-        {
+                if (this.context.EnableNamingAlias)
+                {
 
-this.Write(@"            global::Microsoft.OData.Client.OriginalNameAttribute originalNameAttribute = (global::Microsoft.OData.Client.OriginalNameAttribute)global::System.Linq.Enumerable.SingleOrDefault(global::Microsoft.OData.Client.Utility.GetCustomAttributes(clientType, typeof(global::Microsoft.OData.Client.OriginalNameAttribute), true));
+                    this.Write(@"            global::Microsoft.OData.Client.OriginalNameAttribute originalNameAttribute = (global::Microsoft.OData.Client.OriginalNameAttribute)global::System.Linq.Enumerable.SingleOrDefault(global::Microsoft.OData.Client.Utility.GetCustomAttributes(clientType, typeof(global::Microsoft.OData.Client.OriginalNameAttribute), true));
 ");
 
 
-        }
-    }
-
-    internal override void WriteResolveType(string fullNamespace, string languageDependentNamespace)
-    {
-
-this.Write("            if (clientType.Namespace.Equals(\"");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(languageDependentNamespace));
-
-this.Write("\", global::System.StringComparison.Ordinal))\r\n            {\r\n");
-
-
-        if (this.context.EnableNamingAlias)
-        {
-
-this.Write("                if (originalNameAttribute != null)\r\n                {\r\n          " +
-        "          return string.Concat(\"");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(fullNamespace));
-
-this.Write(".\", originalNameAttribute.OriginalName);\r\n                }\r\n");
-
-
-        }
-
-this.Write("                return string.Concat(\"");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(fullNamespace));
-
-this.Write(".\", clientType.Name);\r\n            }\r\n");
-
-
-    }
-
-    internal override void WriteMethodEndForResolveNameFromType(bool modelHasInheritance)
-    {
-        if (this.context.EnableNamingAlias && modelHasInheritance)
-        {
-
-this.Write("            if (originalNameAttribute != null)\r\n            {\r\n                re" +
-        "turn clientType.Namespace + \".\" + originalNameAttribute.OriginalName;\r\n         " +
-        "   }\r\n");
-
-
-        }
-
-this.Write("            return ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(modelHasInheritance ? "clientType.FullName" : "null"));
-
-this.Write(";\r\n        }\r\n");
-
-
-    }
-
-    internal override void WriteConstructorForSingleType(string singleTypeName, string baseTypeName)
-    {
-
-this.Write("        /// <summary>\r\n        /// Initialize a new ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(singleTypeName));
-
-this.Write(" object.\r\n        /// </summary>\r\n        public ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(singleTypeName));
-
-this.Write("(global::Microsoft.OData.Client.DataServiceContext context, string path)\r\n       " +
-        "     : base(context, path) {}\r\n\r\n        /// <summary>\r\n        /// Initialize a" +
-        " new ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(singleTypeName));
-
-this.Write(" object.\r\n        /// </summary>\r\n        public ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(singleTypeName));
-
-this.Write("(global::Microsoft.OData.Client.DataServiceContext context, string path, bool isC" +
-        "omposable)\r\n            : base(context, path, isComposable) {}\r\n\r\n        /// <s" +
-        "ummary>\r\n        /// Initialize a new ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(singleTypeName));
-
-this.Write(" object.\r\n        /// </summary>\r\n        public ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(singleTypeName));
-
-this.Write("(");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(baseTypeName));
-
-this.Write(" query)\r\n            : base(query) {}\r\n\r\n");
-
-
-    }
-
-    internal override void WriteContextEntitySetProperty(string entitySetName, string entitySetFixedName, string originalEntitySetName, string entitySetElementTypeName, bool inContext)
-    {
-
-this.Write("        /// <summary>\r\n        /// There are no comments for ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(entitySetName));
-
-this.Write(" in the schema.\r\n        /// </summary>\r\n        [global::System.CodeDom.Compiler" +
-        ".GeneratedCodeAttribute(\"Microsoft.OData.Client.Design.T4\", \"");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
-
-this.Write("\")]\r\n");
-
-
-        if (this.context.EnableNamingAlias)
-        {
-
-this.Write("        [global::Microsoft.OData.Client.OriginalNameAttribute(\"");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(originalEntitySetName));
-
-this.Write("\")]\r\n");
-
-
-        }
-
-this.Write("        public global::Microsoft.OData.Client.DataServiceQuery<");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(entitySetElementTypeName));
-
-this.Write("> ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(entitySetFixedName));
-
-this.Write("\r\n        {\r\n            get\r\n            {\r\n");
-
-
-        if (!inContext)
-        {
-
-this.Write("                if (!this.IsComposable)\r\n                {\r\n                    t" +
-        "hrow new global::System.NotSupportedException(\"The previous function is not comp" +
-        "osable.\");\r\n                }\r\n");
-
-
-        }
-
-this.Write("                if ((this._");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(entitySetName));
-
-this.Write(" == null))\r\n                {\r\n                    this._");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(entitySetName));
-
-this.Write(" = ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(inContext ? "base" : "Context"));
-
-this.Write(".CreateQuery<");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(entitySetElementTypeName));
-
-this.Write(">(");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(inContext ? "\"" + originalEntitySetName + "\"" : "GetPath(\"" + originalEntitySetName + "\")"));
-
-this.Write(");\r\n                }\r\n                return this._");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(entitySetName));
-
-this.Write(";\r\n            }\r\n        }\r\n        [global::System.CodeDom.Compiler.GeneratedCo" +
-        "deAttribute(\"Microsoft.OData.Client.Design.T4\", \"");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
-
-this.Write("\")]\r\n        private global::Microsoft.OData.Client.DataServiceQuery<");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(entitySetElementTypeName));
-
-this.Write("> _");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(entitySetName));
-
-this.Write(";\r\n");
-
-
-    }
-
-    internal override void WriteContextSingletonProperty(string singletonName, string singletonFixedName, string originalSingletonName, string singletonElementTypeName, bool inContext)
-    {
-
-this.Write("        /// <summary>\r\n        /// There are no comments for ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(singletonName));
-
-this.Write(" in the schema.\r\n        /// </summary>\r\n        [global::System.CodeDom.Compiler" +
-        ".GeneratedCodeAttribute(\"Microsoft.OData.Client.Design.T4\", \"");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
-
-this.Write("\")]\r\n");
-
-
-        if (this.context.EnableNamingAlias)
-        {
-
-this.Write("        [global::Microsoft.OData.Client.OriginalNameAttribute(\"");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(originalSingletonName));
-
-this.Write("\")]\r\n");
-
-
-        }
-
-this.Write("        public ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(singletonElementTypeName));
-
-this.Write(" ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(singletonFixedName));
-
-this.Write("\r\n        {\r\n            get\r\n            {\r\n");
-
-
-        if (!inContext)
-        {
-
-this.Write("                if (!this.IsComposable)\r\n                {\r\n                    t" +
-        "hrow new global::System.NotSupportedException(\"The previous function is not comp" +
-        "osable.\");\r\n                }\r\n");
-
-
-        }
-
-this.Write("                if ((this._");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(singletonName));
-
-this.Write(" == null))\r\n                {\r\n                    this._");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(singletonName));
-
-this.Write(" = new ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(singletonElementTypeName));
-
-this.Write("(");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(inContext ? "this" : "this.Context"));
-
-this.Write(", ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(inContext ? "\"" + originalSingletonName + "\"" : "GetPath(\"" + originalSingletonName + "\")"));
-
-this.Write(");\r\n                }\r\n                return this._");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(singletonName));
-
-this.Write(";\r\n            }\r\n        }\r\n        [global::System.CodeDom.Compiler.GeneratedCo" +
-        "deAttribute(\"Microsoft.OData.Client.Design.T4\", \"");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
-
-this.Write("\")]\r\n        private ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(singletonElementTypeName));
-
-this.Write(" _");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(singletonName));
-
-this.Write(";\r\n");
-
-
-    }
-
-    internal override void WriteContextAddToEntitySetMethod(string entitySetName, string originalEntitySetName, string typeName, string parameterName)
-    {
-
-this.Write("        /// <summary>\r\n        /// There are no comments for ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(entitySetName));
-
-this.Write(" in the schema.\r\n        /// </summary>\r\n        [global::System.CodeDom.Compiler" +
-        ".GeneratedCodeAttribute(\"Microsoft.OData.Client.Design.T4\", \"");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
-
-this.Write("\")]\r\n        public void AddTo");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(entitySetName));
-
-this.Write("(");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(typeName));
-
-this.Write(" ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(parameterName));
-
-this.Write(")\r\n        {\r\n            base.AddObject(\"");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(originalEntitySetName));
-
-this.Write("\", ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(parameterName));
-
-this.Write(");\r\n        }\r\n");
-
-
-    }
-
-    internal override void WriteGeneratedEdmModel(string escapedEdmxString)
-    {
-
-        string path = this.context.TempFilePath; 
-        
-        if (!String.IsNullOrEmpty(path))
-        {
-            using (StreamWriter writer = new StreamWriter(path, true))
-            {
-                writer.WriteLine(escapedEdmxString);
+                }
             }
-        }
 
-        bool useTempFile = !String.IsNullOrEmpty(path) && System.IO.File.Exists(path);
-
-this.Write("        [global::System.CodeDom.Compiler.GeneratedCodeAttribute(\"Microsoft.OData." +
-        "Client.Design.T4\", \"");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
-
-this.Write("\")]\r\n        private abstract class GeneratedEdmModel\r\n        {\r\n");
-
-
-        if (this.context.ReferencesMap != null)
-        {
-
-this.Write("            [global::System.CodeDom.Compiler.GeneratedCodeAttribute(\"Microsoft.OD" +
-        "ata.Client.Design.T4\", \"");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
-
-this.Write("\")]\r\n            private static global::System.Collections.Generic.Dictionary<str" +
-        "ing, string> ReferencesMap = new global::System.Collections.Generic.Dictionary<s" +
-        "tring, string>()\r\n                {\r\n");
-
-
-            foreach(var reference in this.context.ReferencesMap)
+            internal override void WriteResolveType(string fullNamespace, string languageDependentNamespace)
             {
 
-this.Write("                    {@\"");
+                this.Write("            if (clientType.Namespace.Equals(\"");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(reference.Key.OriginalString.Replace("\"", "\"\"")));
+                this.Write(this.ToStringHelper.ToStringWithCulture(languageDependentNamespace));
 
-this.Write("\", @\"");
+                this.Write("\", global::System.StringComparison.Ordinal))\r\n            {\r\n");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(Utils.SerializeToString(reference.Value).Replace("\"", "\"\"")));
 
-this.Write("\"},\r\n");
+                if (this.context.EnableNamingAlias)
+                {
+
+                    this.Write("                if (originalNameAttribute != null)\r\n                {\r\n          " +
+                            "          return string.Concat(\"");
+
+                    this.Write(this.ToStringHelper.ToStringWithCulture(fullNamespace));
+
+                    this.Write(".\", originalNameAttribute.OriginalName);\r\n                }\r\n");
+
+
+                }
+
+                this.Write("                return string.Concat(\"");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(fullNamespace));
+
+                this.Write(".\", clientType.Name);\r\n            }\r\n");
 
 
             }
 
-this.Write("                };\r\n");
+            internal override void WriteMethodEndForResolveNameFromType(bool modelHasInheritance)
+            {
+                if (this.context.EnableNamingAlias && modelHasInheritance)
+                {
+
+                    this.Write("            if (originalNameAttribute != null)\r\n            {\r\n                re" +
+                            "turn clientType.Namespace + \".\" + originalNameAttribute.OriginalName;\r\n         " +
+                            "   }\r\n");
 
 
-        }
+                }
 
-this.Write("            [global::System.CodeDom.Compiler.GeneratedCodeAttribute(\"Microsoft.OD" +
-        "ata.Client.Design.T4\", \"");
+                this.Write("            return ");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
+                this.Write(this.ToStringHelper.ToStringWithCulture(modelHasInheritance ? "clientType.FullName" : "null"));
 
-this.Write("\")]\r\n            private static global::Microsoft.OData.Edm.IEdmModel ParsedModel" +
-        " = LoadModelFromString();\r\n");
+                this.Write(";\r\n        }\r\n");
 
 
-        if (useTempFile)
-        {
+            }
 
-this.Write("   \r\n           [global::System.CodeDom.Compiler.GeneratedCodeAttribute(\"Microsof" +
-        "t.OData.Client.Design.T4\", \"");
+            internal override void WriteConstructorForSingleType(string singleTypeName, string baseTypeName)
+            {
 
-this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
+                this.Write("        /// <summary>\r\n        /// Initialize a new ");
 
-this.Write("\")]\r\n           private const string filePath = @\"");
+                this.Write(this.ToStringHelper.ToStringWithCulture(singleTypeName));
 
-this.Write(this.ToStringHelper.ToStringWithCulture(path));
+                this.Write(" object.\r\n        /// </summary>\r\n        public ");
 
-this.Write("\";\r\n");
+                this.Write(this.ToStringHelper.ToStringWithCulture(singleTypeName));
 
+                this.Write("(global::Microsoft.OData.Client.DataServiceContext context, string path)\r\n       " +
+                        "     : base(context, path) {}\r\n\r\n        /// <summary>\r\n        /// Initialize a" +
+                        " new ");
 
-        }
-        else
-        {
+                this.Write(this.ToStringHelper.ToStringWithCulture(singleTypeName));
 
-this.Write("            [global::System.CodeDom.Compiler.GeneratedCodeAttribute(\"Microsoft.OD" +
-        "ata.Client.Design.T4\", \"");
+                this.Write(" object.\r\n        /// </summary>\r\n        public ");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
+                this.Write(this.ToStringHelper.ToStringWithCulture(singleTypeName));
 
-this.Write("\")]\r\n            private const string Edmx = @\"");
+                this.Write("(global::Microsoft.OData.Client.DataServiceContext context, string path, bool isC" +
+                        "omposable)\r\n            : base(context, path, isComposable) {}\r\n\r\n        /// <s" +
+                        "ummary>\r\n        /// Initialize a new ");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(escapedEdmxString));
+                this.Write(this.ToStringHelper.ToStringWithCulture(singleTypeName));
 
-this.Write("\";\r\n");
+                this.Write(" object.\r\n        /// </summary>\r\n        public ");
 
+                this.Write(this.ToStringHelper.ToStringWithCulture(singleTypeName));
 
-        }
+                this.Write("(");
 
-this.Write("            [global::System.CodeDom.Compiler.GeneratedCodeAttribute(\"Microsoft.OD" +
-        "ata.Client.Design.T4\", \"");
+                this.Write(this.ToStringHelper.ToStringWithCulture(baseTypeName));
 
-this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
-
-this.Write("\")]\r\n            public static global::Microsoft.OData.Edm.IEdmModel GetInstance(" +
-        ")\r\n            {\r\n                return ParsedModel;\r\n            }\r\n");
+                this.Write(" query)\r\n            : base(query) {}\r\n\r\n");
 
 
-        if (this.context.ReferencesMap != null)
-        {
+            }
 
-this.Write("            [global::System.CodeDom.Compiler.GeneratedCodeAttribute(\"Microsoft.OD" +
-        "ata.Client.Design.T4\", \"");
+            internal override void WriteContextEntitySetProperty(string entitySetName, string entitySetFixedName, string originalEntitySetName, string entitySetElementTypeName, bool inContext)
+            {
 
-this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
+                this.Write("        /// <summary>\r\n        /// There are no comments for ");
 
-this.Write(@""")]
+                this.Write(this.ToStringHelper.ToStringWithCulture(entitySetName));
+
+                this.Write(" in the schema.\r\n        /// </summary>\r\n        [global::System.CodeDom.Compiler" +
+                        ".GeneratedCodeAttribute(\"Microsoft.OData.Client.Design.T4\", \"");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
+
+                this.Write("\")]\r\n");
+
+
+                if (this.context.EnableNamingAlias)
+                {
+
+                    this.Write("        [global::Microsoft.OData.Client.OriginalNameAttribute(\"");
+
+                    this.Write(this.ToStringHelper.ToStringWithCulture(originalEntitySetName));
+
+                    this.Write("\")]\r\n");
+
+
+                }
+
+                this.Write("        public global::Microsoft.OData.Client.DataServiceQuery<");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(entitySetElementTypeName));
+
+                this.Write("> ");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(entitySetFixedName));
+
+                this.Write("\r\n        {\r\n            get\r\n            {\r\n");
+
+
+                if (!inContext)
+                {
+
+                    this.Write("                if (!this.IsComposable)\r\n                {\r\n                    t" +
+                            "hrow new global::System.NotSupportedException(\"The previous function is not comp" +
+                            "osable.\");\r\n                }\r\n");
+
+
+                }
+
+                this.Write("                if ((this._");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(entitySetName));
+
+                this.Write(" == null))\r\n                {\r\n                    this._");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(entitySetName));
+
+                this.Write(" = ");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(inContext ? "base" : "Context"));
+
+                this.Write(".CreateQuery<");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(entitySetElementTypeName));
+
+                this.Write(">(");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(inContext ? "\"" + originalEntitySetName + "\"" : "GetPath(\"" + originalEntitySetName + "\")"));
+
+                this.Write(");\r\n                }\r\n                return this._");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(entitySetName));
+
+                this.Write(";\r\n            }\r\n        }\r\n        [global::System.CodeDom.Compiler.GeneratedCo" +
+                        "deAttribute(\"Microsoft.OData.Client.Design.T4\", \"");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
+
+                this.Write("\")]\r\n        private global::Microsoft.OData.Client.DataServiceQuery<");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(entitySetElementTypeName));
+
+                this.Write("> _");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(entitySetName));
+
+                this.Write(";\r\n");
+
+
+            }
+
+            internal override void WriteContextSingletonProperty(string singletonName, string singletonFixedName, string originalSingletonName, string singletonElementTypeName, bool inContext)
+            {
+
+                this.Write("        /// <summary>\r\n        /// There are no comments for ");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(singletonName));
+
+                this.Write(" in the schema.\r\n        /// </summary>\r\n        [global::System.CodeDom.Compiler" +
+                        ".GeneratedCodeAttribute(\"Microsoft.OData.Client.Design.T4\", \"");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
+
+                this.Write("\")]\r\n");
+
+
+                if (this.context.EnableNamingAlias)
+                {
+
+                    this.Write("        [global::Microsoft.OData.Client.OriginalNameAttribute(\"");
+
+                    this.Write(this.ToStringHelper.ToStringWithCulture(originalSingletonName));
+
+                    this.Write("\")]\r\n");
+
+
+                }
+
+                this.Write("        public ");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(singletonElementTypeName));
+
+                this.Write(" ");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(singletonFixedName));
+
+                this.Write("\r\n        {\r\n            get\r\n            {\r\n");
+
+
+                if (!inContext)
+                {
+
+                    this.Write("                if (!this.IsComposable)\r\n                {\r\n                    t" +
+                            "hrow new global::System.NotSupportedException(\"The previous function is not comp" +
+                            "osable.\");\r\n                }\r\n");
+
+
+                }
+
+                this.Write("                if ((this._");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(singletonName));
+
+                this.Write(" == null))\r\n                {\r\n                    this._");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(singletonName));
+
+                this.Write(" = new ");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(singletonElementTypeName));
+
+                this.Write("(");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(inContext ? "this" : "this.Context"));
+
+                this.Write(", ");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(inContext ? "\"" + originalSingletonName + "\"" : "GetPath(\"" + originalSingletonName + "\")"));
+
+                this.Write(");\r\n                }\r\n                return this._");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(singletonName));
+
+                this.Write(";\r\n            }\r\n        }\r\n        [global::System.CodeDom.Compiler.GeneratedCo" +
+                        "deAttribute(\"Microsoft.OData.Client.Design.T4\", \"");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
+
+                this.Write("\")]\r\n        private ");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(singletonElementTypeName));
+
+                this.Write(" _");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(singletonName));
+
+                this.Write(";\r\n");
+
+
+            }
+
+            internal override void WriteContextAddToEntitySetMethod(string entitySetName, string originalEntitySetName, string typeName, string parameterName)
+            {
+
+                this.Write("        /// <summary>\r\n        /// There are no comments for ");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(entitySetName));
+
+                this.Write(" in the schema.\r\n        /// </summary>\r\n        [global::System.CodeDom.Compiler" +
+                        ".GeneratedCodeAttribute(\"Microsoft.OData.Client.Design.T4\", \"");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
+
+                this.Write("\")]\r\n        public void AddTo");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(entitySetName));
+
+                this.Write("(");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(typeName));
+
+                this.Write(" ");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(parameterName));
+
+                this.Write(")\r\n        {\r\n            base.AddObject(\"");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(originalEntitySetName));
+
+                this.Write("\", ");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(parameterName));
+
+                this.Write(");\r\n        }\r\n");
+
+
+            }
+
+            internal override void WriteGeneratedEdmModel(string escapedEdmxString)
+            {
+
+                string path = this.context.TempFilePath;
+
+                if (!String.IsNullOrEmpty(path))
+                {
+                    using (StreamWriter writer = new StreamWriter(path, true))
+                    {
+                        writer.WriteLine(escapedEdmxString);
+                    }
+                }
+
+                bool useTempFile = !String.IsNullOrEmpty(path) && System.IO.File.Exists(path);
+
+                this.Write("        [global::System.CodeDom.Compiler.GeneratedCodeAttribute(\"Microsoft.OData." +
+                        "Client.Design.T4\", \"");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
+
+                this.Write("\")]\r\n        private abstract class GeneratedEdmModel\r\n        {\r\n");
+
+
+                if (this.context.ReferencesMap != null)
+                {
+
+                    this.Write("            [global::System.CodeDom.Compiler.GeneratedCodeAttribute(\"Microsoft.OD" +
+                            "ata.Client.Design.T4\", \"");
+
+                    this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
+
+                    this.Write("\")]\r\n            private static global::System.Collections.Generic.Dictionary<str" +
+                            "ing, string> ReferencesMap = new global::System.Collections.Generic.Dictionary<s" +
+                            "tring, string>()\r\n                {\r\n");
+
+
+                    foreach (var reference in this.context.ReferencesMap)
+                    {
+
+                        this.Write("                    {@\"");
+
+                        this.Write(this.ToStringHelper.ToStringWithCulture(reference.Key.OriginalString.Replace("\"", "\"\"")));
+
+                        this.Write("\", @\"");
+
+                        this.Write(this.ToStringHelper.ToStringWithCulture(Utils.SerializeToString(reference.Value).Replace("\"", "\"\"")));
+
+                        this.Write("\"},\r\n");
+
+
+                    }
+
+                    this.Write("                };\r\n");
+
+
+                }
+
+                this.Write("            [global::System.CodeDom.Compiler.GeneratedCodeAttribute(\"Microsoft.OD" +
+                        "ata.Client.Design.T4\", \"");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
+
+                this.Write("\")]\r\n            private static global::Microsoft.OData.Edm.IEdmModel ParsedModel" +
+                        " = LoadModelFromString();\r\n");
+
+
+                if (useTempFile)
+                {
+
+                    this.Write("   \r\n           [global::System.CodeDom.Compiler.GeneratedCodeAttribute(\"Microsof" +
+                            "t.OData.Client.Design.T4\", \"");
+
+                    this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
+
+                    this.Write("\")]\r\n           private const string filePath = @\"");
+
+                    this.Write(this.ToStringHelper.ToStringWithCulture(path));
+
+                    this.Write("\";\r\n");
+
+
+                }
+                else
+                {
+
+                    this.Write("            [global::System.CodeDom.Compiler.GeneratedCodeAttribute(\"Microsoft.OD" +
+                            "ata.Client.Design.T4\", \"");
+
+                    this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
+
+                    this.Write("\")]\r\n            private const string Edmx = @\"");
+
+                    this.Write(this.ToStringHelper.ToStringWithCulture(escapedEdmxString));
+
+                    this.Write("\";\r\n");
+
+
+                }
+
+                this.Write("            [global::System.CodeDom.Compiler.GeneratedCodeAttribute(\"Microsoft.OD" +
+                        "ata.Client.Design.T4\", \"");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
+
+                this.Write("\")]\r\n            public static global::Microsoft.OData.Edm.IEdmModel GetInstance(" +
+                        ")\r\n            {\r\n                return ParsedModel;\r\n            }\r\n");
+
+
+                if (this.context.ReferencesMap != null)
+                {
+
+                    this.Write("            [global::System.CodeDom.Compiler.GeneratedCodeAttribute(\"Microsoft.OD" +
+                            "ata.Client.Design.T4\", \"");
+
+                    this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
+
+                    this.Write(@""")]
             private static global::System.Xml.XmlReader getReferencedModelFromMap(global::System.Uri uri)
             {
                 string referencedEdmx;
@@ -4164,28 +4139,28 @@ this.Write(@""")]
             }
             [global::System.CodeDom.Compiler.GeneratedCodeAttribute(""Microsoft.OData.Client.Design.T4"", """);
 
-this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
+                    this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
 
-this.Write("\")]\r\n            private static global::Microsoft.OData.Edm.IEdmModel LoadModelFr" +
-        "omString()\r\n            {\r\n");
-
-
-            if (useTempFile)
-            {
-
-this.Write("   \r\n                global::System.Xml.XmlReader reader = CreateXmlReader();\r\n");
+                    this.Write("\")]\r\n            private static global::Microsoft.OData.Edm.IEdmModel LoadModelFr" +
+                            "omString()\r\n            {\r\n");
 
 
-            }
-            else
-            {
+                    if (useTempFile)
+                    {
 
-this.Write("                global::System.Xml.XmlReader reader = CreateXmlReader(Edmx);\r\n");
+                        this.Write("   \r\n                global::System.Xml.XmlReader reader = CreateXmlReader();\r\n");
 
 
-            }
+                    }
+                    else
+                    {
 
-this.Write(@"                try
+                        this.Write("                global::System.Xml.XmlReader reader = CreateXmlReader(Edmx);\r\n");
+
+
+                    }
+
+                    this.Write(@"                try
                 {
                     return global::Microsoft.OData.Edm.Csdl.CsdlReader.Parse(reader, getReferencedModelFromMap);
                 }
@@ -4197,44 +4172,44 @@ this.Write(@"                try
 ");
 
 
-        }
-        else
-        {
+                }
+                else
+                {
 
-this.Write("            [global::System.CodeDom.Compiler.GeneratedCodeAttribute(\"Microsoft.OD" +
-        "ata.Client.Design.T4\", \"");
+                    this.Write("            [global::System.CodeDom.Compiler.GeneratedCodeAttribute(\"Microsoft.OD" +
+                            "ata.Client.Design.T4\", \"");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
+                    this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
 
-this.Write("\")]\r\n            private static global::Microsoft.OData.Edm.IEdmModel LoadModelFr" +
-        "omString()\r\n            {\r\n");
-
-
-            if (useTempFile)
-            {
-
-this.Write("   \r\n                global::System.Xml.XmlReader reader = CreateXmlReader();\r\n");
+                    this.Write("\")]\r\n            private static global::Microsoft.OData.Edm.IEdmModel LoadModelFr" +
+                            "omString()\r\n            {\r\n");
 
 
-            }
-            else
-            {
+                    if (useTempFile)
+                    {
 
-this.Write("                global::System.Xml.XmlReader reader = CreateXmlReader(Edmx);\r\n");
+                        this.Write("   \r\n                global::System.Xml.XmlReader reader = CreateXmlReader();\r\n");
 
 
-            }
+                    }
+                    else
+                    {
 
-this.Write(@"                try
+                        this.Write("                global::System.Xml.XmlReader reader = CreateXmlReader(Edmx);\r\n");
+
+
+                    }
+
+                    this.Write(@"                try
                 {
                     global::System.Collections.Generic.IEnumerable<global::Microsoft.OData.Edm.Validation.EdmError> errors;
                     global::Microsoft.OData.Edm.IEdmModel edmModel;
                     
                     if (!global::Microsoft.OData.Edm.Csdl.CsdlReader.TryParse(reader, ");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(this.context.IgnoreUnexpectedElementsAndAttributes ? "true" : "false"));
+                    this.Write(this.ToStringHelper.ToStringWithCulture(this.context.IgnoreUnexpectedElementsAndAttributes ? "true" : "false"));
 
-this.Write(@", out edmModel, out errors))
+                    this.Write(@", out edmModel, out errors))
                     {
                         global::System.Text.StringBuilder errorMessages = new global::System.Text.StringBuilder();
                         foreach (var error in errors)
@@ -4255,383 +4230,383 @@ this.Write(@", out edmModel, out errors))
 ");
 
 
-        }
+                }
 
-this.Write("            [global::System.CodeDom.Compiler.GeneratedCodeAttribute(\"Microsoft.OD" +
-        "ata.Client.Design.T4\", \"");
+                this.Write("            [global::System.CodeDom.Compiler.GeneratedCodeAttribute(\"Microsoft.OD" +
+                        "ata.Client.Design.T4\", \"");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
+                this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
 
-this.Write("\")]\r\n            private static global::System.Xml.XmlReader CreateXmlReader(stri" +
-        "ng edmxToParse)\r\n            {\r\n                return global::System.Xml.XmlRea" +
-        "der.Create(new global::System.IO.StringReader(edmxToParse));\r\n            }\r\n");
+                this.Write("\")]\r\n            private static global::System.Xml.XmlReader CreateXmlReader(stri" +
+                        "ng edmxToParse)\r\n            {\r\n                return global::System.Xml.XmlRea" +
+                        "der.Create(new global::System.IO.StringReader(edmxToParse));\r\n            }\r\n");
 
 
-        if (useTempFile)
-        {
+                if (useTempFile)
+                {
 
-this.Write("   \r\n                [global::System.CodeDom.Compiler.GeneratedCodeAttribute(\"Mic" +
-        "rosoft.OData.Client.Design.T4\", \"");
+                    this.Write("   \r\n                [global::System.CodeDom.Compiler.GeneratedCodeAttribute(\"Mic" +
+                            "rosoft.OData.Client.Design.T4\", \"");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
+                    this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
 
-this.Write("\")]\r\n                private static global::System.Xml.XmlReader CreateXmlReader(" +
-        ")\r\n                {\r\n                    return global::System.Xml.XmlReader.Cr" +
-        "eate(new global::System.IO.StreamReader(filePath));\r\n                }\r\n");
+                    this.Write("\")]\r\n                private static global::System.Xml.XmlReader CreateXmlReader(" +
+                            ")\r\n                {\r\n                    return global::System.Xml.XmlReader.Cr" +
+                            "eate(new global::System.IO.StreamReader(filePath));\r\n                }\r\n");
 
 
-        }
+                }
 
-this.Write("        }\r\n");
+                this.Write("        }\r\n");
 
 
-    }
+            }
 
-    internal override void WriteClassEndForEntityContainer()
-    {
+            internal override void WriteClassEndForEntityContainer()
+            {
 
-this.Write("    }\r\n");
+                this.Write("    }\r\n");
 
 
-    }
+            }
 
-    internal override void WriteSummaryCommentForStructuredType(string typeName)
-    {
+            internal override void WriteSummaryCommentForStructuredType(string typeName)
+            {
 
-this.Write("    /// <summary>\r\n    /// There are no comments for ");
+                this.Write("    /// <summary>\r\n    /// There are no comments for ");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(typeName));
+                this.Write(this.ToStringHelper.ToStringWithCulture(typeName));
 
-this.Write(" in the schema.\r\n    /// </summary>\r\n");
+                this.Write(" in the schema.\r\n    /// </summary>\r\n");
 
 
-    }
+            }
 
-    internal override void WriteKeyPropertiesCommentAndAttribute(IEnumerable<string> keyProperties, string keyString)
-    {
+            internal override void WriteKeyPropertiesCommentAndAttribute(IEnumerable<string> keyProperties, string keyString)
+            {
 
-this.Write("    /// <KeyProperties>\r\n");
+                this.Write("    /// <KeyProperties>\r\n");
 
 
-        foreach (string key in keyProperties)
-        {
+                foreach (string key in keyProperties)
+                {
 
-this.Write("    /// ");
+                    this.Write("    /// ");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(key));
+                    this.Write(this.ToStringHelper.ToStringWithCulture(key));
 
-this.Write("\r\n");
+                    this.Write("\r\n");
 
 
-        }
+                }
 
-this.Write("    /// </KeyProperties>\r\n    [global::Microsoft.OData.Client.Key(\"");
+                this.Write("    /// </KeyProperties>\r\n    [global::Microsoft.OData.Client.Key(\"");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(keyString));
+                this.Write(this.ToStringHelper.ToStringWithCulture(keyString));
 
-this.Write("\")]\r\n");
+                this.Write("\")]\r\n");
 
 
-    }
+            }
 
-    internal override void WriteEntityTypeAttribute()
-    {
+            internal override void WriteEntityTypeAttribute()
+            {
 
-this.Write("    [global::Microsoft.OData.Client.EntityType()]\r\n");
+                this.Write("    [global::Microsoft.OData.Client.EntityType()]\r\n");
 
 
-    }
+            }
 
-    internal override void WriteEntitySetAttribute(string entitySetName)
-    {
+            internal override void WriteEntitySetAttribute(string entitySetName)
+            {
 
-this.Write("    [global::Microsoft.OData.Client.EntitySet(\"");
+                this.Write("    [global::Microsoft.OData.Client.EntitySet(\"");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(entitySetName));
+                this.Write(this.ToStringHelper.ToStringWithCulture(entitySetName));
 
-this.Write("\")]\r\n");
+                this.Write("\")]\r\n");
 
 
-    }
+            }
 
-    internal override void WriteEntityHasStreamAttribute()
-    {
+            internal override void WriteEntityHasStreamAttribute()
+            {
 
-this.Write("    [global::Microsoft.OData.Client.HasStream()]\r\n");
+                this.Write("    [global::Microsoft.OData.Client.HasStream()]\r\n");
 
 
-    }
+            }
 
-    internal override void WriteClassStartForStructuredType(string abstractModifier, string typeName, string originalTypeName, string baseTypeName)
-    {
-        if (this.context.EnableNamingAlias)
-        {
+            internal override void WriteClassStartForStructuredType(string abstractModifier, string typeName, string originalTypeName, string baseTypeName)
+            {
+                if (this.context.EnableNamingAlias)
+                {
 
-this.Write("    [global::Microsoft.OData.Client.OriginalNameAttribute(\"");
+                    this.Write("    [global::Microsoft.OData.Client.OriginalNameAttribute(\"");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(originalTypeName));
+                    this.Write(this.ToStringHelper.ToStringWithCulture(originalTypeName));
 
-this.Write("\")]\r\n");
+                    this.Write("\")]\r\n");
 
 
-        }
+                }
 
-this.Write("    public");
+                this.Write("    public");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(abstractModifier));
+                this.Write(this.ToStringHelper.ToStringWithCulture(abstractModifier));
 
-this.Write(" partial class ");
+                this.Write(" partial class ");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(typeName));
+                this.Write(this.ToStringHelper.ToStringWithCulture(typeName));
 
-this.Write(this.ToStringHelper.ToStringWithCulture(baseTypeName));
+                this.Write(this.ToStringHelper.ToStringWithCulture(baseTypeName));
 
-this.Write("\r\n    {\r\n");
+                this.Write("\r\n    {\r\n");
 
 
-    }
+            }
 
-    internal override void WriteSummaryCommentForStaticCreateMethod(string typeName)
-    {
+            internal override void WriteSummaryCommentForStaticCreateMethod(string typeName)
+            {
 
-this.Write("        /// <summary>\r\n        /// Create a new ");
+                this.Write("        /// <summary>\r\n        /// Create a new ");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(typeName));
+                this.Write(this.ToStringHelper.ToStringWithCulture(typeName));
 
-this.Write(" object.\r\n        /// </summary>\r\n");
+                this.Write(" object.\r\n        /// </summary>\r\n");
 
 
-    }
+            }
 
-    internal override void WriteParameterCommentForStaticCreateMethod(string parameterName, string propertyName)
-    {
+            internal override void WriteParameterCommentForStaticCreateMethod(string parameterName, string propertyName)
+            {
 
-this.Write("        /// <param name=\"");
+                this.Write("        /// <param name=\"");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(parameterName));
+                this.Write(this.ToStringHelper.ToStringWithCulture(parameterName));
 
-this.Write("\">Initial value of ");
+                this.Write("\">Initial value of ");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(propertyName));
+                this.Write(this.ToStringHelper.ToStringWithCulture(propertyName));
 
-this.Write(".</param>\r\n");
+                this.Write(".</param>\r\n");
 
 
-    }
+            }
 
-    internal override void WriteDeclarationStartForStaticCreateMethod(string typeName, string fixedTypeName)
-    {
+            internal override void WriteDeclarationStartForStaticCreateMethod(string typeName, string fixedTypeName)
+            {
 
-this.Write("        [global::System.CodeDom.Compiler.GeneratedCodeAttribute(\"Microsoft.OData." +
-        "Client.Design.T4\", \"");
+                this.Write("        [global::System.CodeDom.Compiler.GeneratedCodeAttribute(\"Microsoft.OData." +
+                        "Client.Design.T4\", \"");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
+                this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
 
-this.Write("\")]\r\n        public static ");
+                this.Write("\")]\r\n        public static ");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(fixedTypeName));
+                this.Write(this.ToStringHelper.ToStringWithCulture(fixedTypeName));
 
-this.Write(" Create");
+                this.Write(" Create");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(typeName));
+                this.Write(this.ToStringHelper.ToStringWithCulture(typeName));
 
-this.Write("(");
+                this.Write("(");
 
 
-    }
+            }
 
-    internal override void WriteParameterForStaticCreateMethod(string parameterTypeName, string parameterName, string parameterSeparater)
-    {
+            internal override void WriteParameterForStaticCreateMethod(string parameterTypeName, string parameterName, string parameterSeparater)
+            {
 
-this.Write(this.ToStringHelper.ToStringWithCulture(parameterTypeName));
+                this.Write(this.ToStringHelper.ToStringWithCulture(parameterTypeName));
 
-this.Write(" ");
+                this.Write(" ");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(parameterName));
+                this.Write(this.ToStringHelper.ToStringWithCulture(parameterName));
 
-this.Write(this.ToStringHelper.ToStringWithCulture(parameterSeparater));
+                this.Write(this.ToStringHelper.ToStringWithCulture(parameterSeparater));
 
 
-    }
+            }
 
-    internal override void WriteDeclarationEndForStaticCreateMethod(string typeName, string instanceName)
-    {
-          
-this.Write(")\r\n        {\r\n            ");
+            internal override void WriteDeclarationEndForStaticCreateMethod(string typeName, string instanceName)
+            {
 
-this.Write(this.ToStringHelper.ToStringWithCulture(typeName));
+                this.Write(")\r\n        {\r\n            ");
 
-this.Write(" ");
+                this.Write(this.ToStringHelper.ToStringWithCulture(typeName));
 
-this.Write(this.ToStringHelper.ToStringWithCulture(instanceName));
+                this.Write(" ");
 
-this.Write(" = new ");
+                this.Write(this.ToStringHelper.ToStringWithCulture(instanceName));
 
-this.Write(this.ToStringHelper.ToStringWithCulture(typeName));
+                this.Write(" = new ");
 
-this.Write("();\r\n");
+                this.Write(this.ToStringHelper.ToStringWithCulture(typeName));
 
+                this.Write("();\r\n");
 
-    }
 
-    internal override void  WriteParameterNullCheckForStaticCreateMethod(string parameterName)
-    {
+            }
 
-this.Write("            if ((");
+            internal override void WriteParameterNullCheckForStaticCreateMethod(string parameterName)
+            {
 
-this.Write(this.ToStringHelper.ToStringWithCulture(parameterName));
+                this.Write("            if ((");
 
-this.Write(" == null))\r\n            {\r\n                throw new global::System.ArgumentNullE" +
-        "xception(\"");
+                this.Write(this.ToStringHelper.ToStringWithCulture(parameterName));
 
-this.Write(this.ToStringHelper.ToStringWithCulture(parameterName));
+                this.Write(" == null))\r\n            {\r\n                throw new global::System.ArgumentNullE" +
+                        "xception(\"");
 
-this.Write("\");\r\n            }\r\n");
+                this.Write(this.ToStringHelper.ToStringWithCulture(parameterName));
 
+                this.Write("\");\r\n            }\r\n");
 
-    }
 
-    internal override void WritePropertyValueAssignmentForStaticCreateMethod(string instanceName, string propertyName, string parameterName)
-    {
+            }
 
-this.Write("            ");
+            internal override void WritePropertyValueAssignmentForStaticCreateMethod(string instanceName, string propertyName, string parameterName)
+            {
 
-this.Write(this.ToStringHelper.ToStringWithCulture(instanceName));
+                this.Write("            ");
 
-this.Write(".");
+                this.Write(this.ToStringHelper.ToStringWithCulture(instanceName));
 
-this.Write(this.ToStringHelper.ToStringWithCulture(propertyName));
+                this.Write(".");
 
-this.Write(" = ");
+                this.Write(this.ToStringHelper.ToStringWithCulture(propertyName));
 
-this.Write(this.ToStringHelper.ToStringWithCulture(parameterName));
+                this.Write(" = ");
 
-this.Write(";\r\n");
+                this.Write(this.ToStringHelper.ToStringWithCulture(parameterName));
 
+                this.Write(";\r\n");
 
-    }
 
-    internal override void WriteMethodEndForStaticCreateMethod(string instanceName)
-    {
+            }
 
-this.Write("            return ");
+            internal override void WriteMethodEndForStaticCreateMethod(string instanceName)
+            {
 
-this.Write(this.ToStringHelper.ToStringWithCulture(instanceName));
+                this.Write("            return ");
 
-this.Write(";\r\n        }\r\n");
+                this.Write(this.ToStringHelper.ToStringWithCulture(instanceName));
 
+                this.Write(";\r\n        }\r\n");
 
-    }
 
-    internal override void WritePropertyForStructuredType(string propertyType, string originalPropertyName, string propertyName, string fixedPropertyName, string privatePropertyName, string propertyInitializationValue, bool writeOnPropertyChanged)
-    {
+            }
 
-this.Write("        /// <summary>\r\n        /// There are no comments for Property ");
+            internal override void WritePropertyForStructuredType(string propertyType, string originalPropertyName, string propertyName, string fixedPropertyName, string privatePropertyName, string propertyInitializationValue, bool writeOnPropertyChanged)
+            {
 
-this.Write(this.ToStringHelper.ToStringWithCulture(propertyName));
+                this.Write("        /// <summary>\r\n        /// There are no comments for Property ");
 
-this.Write(" in the schema.\r\n        /// </summary>\r\n        [global::System.CodeDom.Compiler" +
-        ".GeneratedCodeAttribute(\"Microsoft.OData.Client.Design.T4\", \"");
+                this.Write(this.ToStringHelper.ToStringWithCulture(propertyName));
 
-this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
+                this.Write(" in the schema.\r\n        /// </summary>\r\n        [global::System.CodeDom.Compiler" +
+                        ".GeneratedCodeAttribute(\"Microsoft.OData.Client.Design.T4\", \"");
 
-this.Write("\")]\r\n");
+                this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
 
+                this.Write("\")]\r\n");
 
-        if (this.context.EnableNamingAlias || IdentifierMappings.ContainsKey(originalPropertyName))
-        {
 
-this.Write("        [global::Microsoft.OData.Client.OriginalNameAttribute(\"");
+                if (this.context.EnableNamingAlias || IdentifierMappings.ContainsKey(originalPropertyName))
+                {
 
-this.Write(this.ToStringHelper.ToStringWithCulture(originalPropertyName));
+                    this.Write("        [global::Microsoft.OData.Client.OriginalNameAttribute(\"");
 
-this.Write("\")]\r\n");
+                    this.Write(this.ToStringHelper.ToStringWithCulture(originalPropertyName));
 
+                    this.Write("\")]\r\n");
 
-        }
 
-this.Write("        public ");
+                }
 
-this.Write(this.ToStringHelper.ToStringWithCulture(propertyType));
+                this.Write("        public ");
 
-this.Write(" ");
+                this.Write(this.ToStringHelper.ToStringWithCulture(propertyType));
 
-this.Write(this.ToStringHelper.ToStringWithCulture(fixedPropertyName));
+                this.Write(" ");
 
-this.Write("\r\n        {\r\n            get\r\n            {\r\n                return this.");
+                this.Write(this.ToStringHelper.ToStringWithCulture(fixedPropertyName));
 
-this.Write(this.ToStringHelper.ToStringWithCulture(privatePropertyName));
+                this.Write("\r\n        {\r\n            get\r\n            {\r\n                return this.");
 
-this.Write(";\r\n            }\r\n            set\r\n            {\r\n                this.On");
+                this.Write(this.ToStringHelper.ToStringWithCulture(privatePropertyName));
 
-this.Write(this.ToStringHelper.ToStringWithCulture(propertyName));
+                this.Write(";\r\n            }\r\n            set\r\n            {\r\n                this.On");
 
-this.Write("Changing(value);\r\n                this.");
+                this.Write(this.ToStringHelper.ToStringWithCulture(propertyName));
 
-this.Write(this.ToStringHelper.ToStringWithCulture(privatePropertyName));
+                this.Write("Changing(value);\r\n                this.");
 
-this.Write(" = value;\r\n                this.On");
+                this.Write(this.ToStringHelper.ToStringWithCulture(privatePropertyName));
 
-this.Write(this.ToStringHelper.ToStringWithCulture(propertyName));
+                this.Write(" = value;\r\n                this.On");
 
-this.Write("Changed();\r\n");
+                this.Write(this.ToStringHelper.ToStringWithCulture(propertyName));
 
+                this.Write("Changed();\r\n");
 
-        if (writeOnPropertyChanged)
-        {
 
-this.Write("                this.OnPropertyChanged(\"");
+                if (writeOnPropertyChanged)
+                {
 
-this.Write(this.ToStringHelper.ToStringWithCulture(originalPropertyName));
+                    this.Write("                this.OnPropertyChanged(\"");
 
-this.Write("\");\r\n");
+                    this.Write(this.ToStringHelper.ToStringWithCulture(originalPropertyName));
 
+                    this.Write("\");\r\n");
 
-        }
 
-this.Write("            }\r\n        }\r\n        [global::System.CodeDom.Compiler.GeneratedCodeA" +
-        "ttribute(\"Microsoft.OData.Client.Design.T4\", \"");
+                }
 
-this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
+                this.Write("            }\r\n        }\r\n        [global::System.CodeDom.Compiler.GeneratedCodeA" +
+                        "ttribute(\"Microsoft.OData.Client.Design.T4\", \"");
 
-this.Write("\")]\r\n        private ");
+                this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
 
-this.Write(this.ToStringHelper.ToStringWithCulture(propertyType));
+                this.Write("\")]\r\n        private ");
 
-this.Write(" ");
+                this.Write(this.ToStringHelper.ToStringWithCulture(propertyType));
 
-this.Write(this.ToStringHelper.ToStringWithCulture(privatePropertyName));
+                this.Write(" ");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(propertyInitializationValue != null ? " = " + propertyInitializationValue : string.Empty));
+                this.Write(this.ToStringHelper.ToStringWithCulture(privatePropertyName));
 
-this.Write(";\r\n        partial void On");
+                this.Write(this.ToStringHelper.ToStringWithCulture(propertyInitializationValue != null ? " = " + propertyInitializationValue : string.Empty));
 
-this.Write(this.ToStringHelper.ToStringWithCulture(propertyName));
+                this.Write(";\r\n        partial void On");
 
-this.Write("Changing(");
+                this.Write(this.ToStringHelper.ToStringWithCulture(propertyName));
 
-this.Write(this.ToStringHelper.ToStringWithCulture(propertyType));
+                this.Write("Changing(");
 
-this.Write(" value);\r\n        partial void On");
+                this.Write(this.ToStringHelper.ToStringWithCulture(propertyType));
 
-this.Write(this.ToStringHelper.ToStringWithCulture(propertyName));
+                this.Write(" value);\r\n        partial void On");
 
-this.Write("Changed();\r\n");
+                this.Write(this.ToStringHelper.ToStringWithCulture(propertyName));
 
+                this.Write("Changed();\r\n");
 
-    }
 
-    internal override void WriteINotifyPropertyChangedImplementation()
-    {
-        if(!this.context.UseAsyncDataServiceCollection)
-        { 
-this.Write("        /// <summary>\r\n        /// This event is raised when the value of the pro" +
-        "perty is changed\r\n        /// </summary>\r\n        [global::System.CodeDom.Compil" +
-        "er.GeneratedCodeAttribute(\"Microsoft.OData.Client.Design.T4\", \"");
+            }
 
-this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
+            internal override void WriteINotifyPropertyChangedImplementation()
+            {
+                if (!this.context.UseAsyncDataServiceCollection)
+                {
+                    this.Write("        /// <summary>\r\n        /// This event is raised when the value of the pro" +
+                            "perty is changed\r\n        /// </summary>\r\n        [global::System.CodeDom.Compil" +
+                            "er.GeneratedCodeAttribute(\"Microsoft.OData.Client.Design.T4\", \"");
 
-this.Write(@""")]
+                    this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
+
+                    this.Write(@""")]
         public event global::System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
         /// <summary>
         /// The value of the property is changed
@@ -4639,37 +4614,37 @@ this.Write(@""")]
         /// <param name=""property"">property name</param>
         [global::System.CodeDom.Compiler.GeneratedCodeAttribute(""Microsoft.OData.Client.Design.T4"", """);
 
-this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
+                    this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
 
-this.Write(@""")]
+                    this.Write(@""")]
         protected virtual void OnPropertyChanged([global::System.Runtime.CompilerServices.CallerMemberName] string property = null)
         {
             this.PropertyChanged?.Invoke(this, new global::System.ComponentModel.PropertyChangedEventArgs(property));
         }
 ");
-        }
-        else
-        {
-            // based on implementation from https://stackoverflow.com/a/45422891/1690217
-            // In environments that do not support async binding operations natively...
-            // To support async operations on properties that might be bound to UI (99% of the time that is why we want a change notification!)
-            // We may need to track the original thread that the binding was registered on so that we can raise the event back on that thread.
+                }
+                else
+                {
+                    // based on implementation from https://stackoverflow.com/a/45422891/1690217
+                    // In environments that do not support async binding operations natively...
+                    // To support async operations on properties that might be bound to UI (99% of the time that is why we want a change notification!)
+                    // We may need to track the original thread that the binding was registered on so that we can raise the event back on that thread.
 
-this.Write("        /// <summary>\r\n        /// Keep track of the synchronization context of " +
-        "each event handler that is registered.\r\n        /// </summary>\r\n        [global::System.CodeDom.Compil" +
-        "er.GeneratedCodeAttribute(\"Microsoft.OData.Client.Design.T4\", \"");
+                    this.Write("        /// <summary>\r\n        /// Keep track of the synchronization context of " +
+                            "each event handler that is registered.\r\n        /// </summary>\r\n        [global::System.CodeDom.Compil" +
+                            "er.GeneratedCodeAttribute(\"Microsoft.OData.Client.Design.T4\", \"");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
+                    this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
 
-this.Write(@""")]
+                    this.Write(@""")]
         private readonly global::System.Collections.Generic.List<(global::System.Threading.SynchronizationContext context, global::System.ComponentModel.PropertyChangedEventHandler handler)> _handlers = new global::System.Collections.Generic.List<(global::System.Threading.SynchronizationContext context, global::System.ComponentModel.PropertyChangedEventHandler handler)>();
 ");
 
-this.Write("        /// <summary>\r\n        /// This event is raised when the value of the pro" +
-        "perty is changed\r\n        /// </summary>\r\n        [global::System.CodeDom.Compil" +
-        "er.GeneratedCodeAttribute(\"Microsoft.OData.Client.Design.T4\", \"");
-this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
-this.Write(@""")]
+                    this.Write("        /// <summary>\r\n        /// This event is raised when the value of the pro" +
+                            "perty is changed\r\n        /// </summary>\r\n        [global::System.CodeDom.Compil" +
+                            "er.GeneratedCodeAttribute(\"Microsoft.OData.Client.Design.T4\", \"");
+                    this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
+                    this.Write(@""")]
         public event global::System.ComponentModel.PropertyChangedEventHandler PropertyChanged
         {
             add => _handlers.Add((global::System.Threading.SynchronizationContext.Current, value));
@@ -4689,14 +4664,14 @@ this.Write(@""")]
         }
 ");
 
-this.Write(@"        /// <summary>
+                    this.Write(@"        /// <summary>
         /// The value of the property is changed
         /// </summary>
         /// <param name=""property"">property name</param>
         [global::System.CodeDom.Compiler.GeneratedCodeAttribute(""Microsoft.OData.Client.Design.T4"", """);
 
-this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
-this.Write(@""")]
+                    this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
+                    this.Write(@""")]
         protected global::System.Threading.Tasks.Task OnPropertyChanged([global::System.Runtime.CompilerServices.CallerMemberName] string property = null)
         {
             var args = new global::System.ComponentModel.PropertyChangedEventArgs(property);
@@ -4730,443 +4705,443 @@ this.Write(@""")]
         }
 ");
 
-        }
+                }
 
-    }
+            }
 
-    internal override void WriteClassEndForStructuredType()
-    {
+            internal override void WriteClassEndForStructuredType()
+            {
 
-this.Write("    }\r\n");
+                this.Write("    }\r\n");
 
 
-    }
-    
-    internal override void WriteEnumFlags()
-    {
+            }
 
-this.Write("    [global::System.Flags]\r\n");
+            internal override void WriteEnumFlags()
+            {
 
+                this.Write("    [global::System.Flags]\r\n");
 
-    }
 
-    internal override void WriteSummaryCommentForEnumType(string enumName)
-    {
+            }
 
-this.Write("    /// <summary>\r\n    /// There are no comments for ");
+            internal override void WriteSummaryCommentForEnumType(string enumName)
+            {
 
-this.Write(this.ToStringHelper.ToStringWithCulture(enumName));
+                this.Write("    /// <summary>\r\n    /// There are no comments for ");
 
-this.Write(" in the schema.\r\n    /// </summary>\r\n");
+                this.Write(this.ToStringHelper.ToStringWithCulture(enumName));
 
+                this.Write(" in the schema.\r\n    /// </summary>\r\n");
 
-    }
 
-    internal override void WriteEnumDeclaration(string enumName, string originalEnumName, string underlyingType)
-    {
-        if (this.context.EnableNamingAlias)
-        {
+            }
 
-this.Write("    [global::Microsoft.OData.Client.OriginalNameAttribute(\"");
+            internal override void WriteEnumDeclaration(string enumName, string originalEnumName, string underlyingType)
+            {
+                if (this.context.EnableNamingAlias)
+                {
 
-this.Write(this.ToStringHelper.ToStringWithCulture(originalEnumName));
+                    this.Write("    [global::Microsoft.OData.Client.OriginalNameAttribute(\"");
 
-this.Write("\")]\r\n");
+                    this.Write(this.ToStringHelper.ToStringWithCulture(originalEnumName));
 
+                    this.Write("\")]\r\n");
 
-        }
 
-this.Write("    public enum ");
+                }
 
-this.Write(this.ToStringHelper.ToStringWithCulture(enumName));
+                this.Write("    public enum ");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(underlyingType));
+                this.Write(this.ToStringHelper.ToStringWithCulture(enumName));
 
-this.Write("\r\n    {\r\n");
+                this.Write(this.ToStringHelper.ToStringWithCulture(underlyingType));
 
+                this.Write("\r\n    {\r\n");
 
-    }
 
-    internal override void WriteMemberForEnumType(string member, string originalMemberName, bool last)
-    {
-        if (this.context.EnableNamingAlias)
-        {
+            }
 
-this.Write("        [global::Microsoft.OData.Client.OriginalNameAttribute(\"");
+            internal override void WriteMemberForEnumType(string member, string originalMemberName, bool last)
+            {
+                if (this.context.EnableNamingAlias)
+                {
 
-this.Write(this.ToStringHelper.ToStringWithCulture(originalMemberName));
+                    this.Write("        [global::Microsoft.OData.Client.OriginalNameAttribute(\"");
 
-this.Write("\")]\r\n");
+                    this.Write(this.ToStringHelper.ToStringWithCulture(originalMemberName));
 
+                    this.Write("\")]\r\n");
 
-        }
 
-this.Write("        ");
+                }
 
-this.Write(this.ToStringHelper.ToStringWithCulture(member));
+                this.Write("        ");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(last ? string.Empty : ","));
+                this.Write(this.ToStringHelper.ToStringWithCulture(member));
 
-this.Write("\r\n");
+                this.Write(this.ToStringHelper.ToStringWithCulture(last ? string.Empty : ","));
 
+                this.Write("\r\n");
 
-    }
 
-    internal override void WriteEnumEnd()
-    {
+            }
 
-this.Write("    }\r\n");
+            internal override void WriteEnumEnd()
+            {
 
+                this.Write("    }\r\n");
 
-    }
-        
-    internal override void WriteFunctionImportReturnCollectionResult(string functionName, string originalFunctionName, string returnTypeName, string parameters, string parameterValues, bool isComposable, bool useEntityReference)
-    {
 
-this.Write("        /// <summary>\r\n        /// There are no comments for ");
+            }
 
-this.Write(this.ToStringHelper.ToStringWithCulture(functionName));
+            internal override void WriteFunctionImportReturnCollectionResult(string functionName, string originalFunctionName, string returnTypeName, string parameters, string parameterValues, bool isComposable, bool useEntityReference)
+            {
 
-this.Write(" in the schema.\r\n        /// </summary>\r\n");
+                this.Write("        /// <summary>\r\n        /// There are no comments for ");
 
+                this.Write(this.ToStringHelper.ToStringWithCulture(functionName));
 
-        if (this.context.EnableNamingAlias)
-        {
+                this.Write(" in the schema.\r\n        /// </summary>\r\n");
 
-this.Write("        [global::Microsoft.OData.Client.OriginalNameAttribute(\"");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(originalFunctionName));
+                if (this.context.EnableNamingAlias)
+                {
 
-this.Write("\")]\r\n");
+                    this.Write("        [global::Microsoft.OData.Client.OriginalNameAttribute(\"");
 
+                    this.Write(this.ToStringHelper.ToStringWithCulture(originalFunctionName));
 
-        }
+                    this.Write("\")]\r\n");
 
-this.Write("        public global::Microsoft.OData.Client.DataServiceQuery<");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
+                }
 
-this.Write("> ");
+                this.Write("        public global::Microsoft.OData.Client.DataServiceQuery<");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(functionName));
+                this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
 
-this.Write("(");
+                this.Write("> ");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(parameters));
+                this.Write(this.ToStringHelper.ToStringWithCulture(functionName));
 
-this.Write(this.ToStringHelper.ToStringWithCulture(useEntityReference ? ", bool useEntityReference = false" : string.Empty));
+                this.Write("(");
 
-this.Write(")\r\n        {\r\n            return this.CreateFunctionQuery<");
+                this.Write(this.ToStringHelper.ToStringWithCulture(parameters));
 
-this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
+                this.Write(this.ToStringHelper.ToStringWithCulture(useEntityReference ? ", bool useEntityReference = false" : string.Empty));
 
-this.Write(">(\"\", \"");
+                this.Write(")\r\n        {\r\n            return this.CreateFunctionQuery<");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(originalFunctionName));
+                this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
 
-this.Write("\", ");
+                this.Write(">(\"\", \"");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(isComposable.ToString().ToLower()));
+                this.Write(this.ToStringHelper.ToStringWithCulture(originalFunctionName));
 
-this.Write(this.ToStringHelper.ToStringWithCulture(string.IsNullOrEmpty(parameterValues) ? string.Empty : ", " + parameterValues));
+                this.Write("\", ");
 
-this.Write(");\r\n        }\r\n");
+                this.Write(this.ToStringHelper.ToStringWithCulture(isComposable.ToString().ToLower()));
 
+                this.Write(this.ToStringHelper.ToStringWithCulture(string.IsNullOrEmpty(parameterValues) ? string.Empty : ", " + parameterValues));
 
-    }
+                this.Write(");\r\n        }\r\n");
 
-    internal override void WriteFunctionImportReturnSingleResult(string functionName, string originalFunctionName, string returnTypeName, string returnTypeNameWithSingleSuffix, string parameters, string parameterValues, bool isComposable, bool isReturnEntity, bool useEntityReference)
-    {
 
-this.Write("        /// <summary>\r\n        /// There are no comments for ");
+            }
 
-this.Write(this.ToStringHelper.ToStringWithCulture(functionName));
+            internal override void WriteFunctionImportReturnSingleResult(string functionName, string originalFunctionName, string returnTypeName, string returnTypeNameWithSingleSuffix, string parameters, string parameterValues, bool isComposable, bool isReturnEntity, bool useEntityReference)
+            {
 
-this.Write(" in the schema.\r\n        /// </summary>\r\n");
+                this.Write("        /// <summary>\r\n        /// There are no comments for ");
 
+                this.Write(this.ToStringHelper.ToStringWithCulture(functionName));
 
-        if (this.context.EnableNamingAlias)
-        {
+                this.Write(" in the schema.\r\n        /// </summary>\r\n");
 
-this.Write("        [global::Microsoft.OData.Client.OriginalNameAttribute(\"");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(originalFunctionName));
+                if (this.context.EnableNamingAlias)
+                {
 
-this.Write("\")]\r\n");
+                    this.Write("        [global::Microsoft.OData.Client.OriginalNameAttribute(\"");
 
+                    this.Write(this.ToStringHelper.ToStringWithCulture(originalFunctionName));
 
-        }
+                    this.Write("\")]\r\n");
 
-this.Write("        public ");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(isReturnEntity ? returnTypeNameWithSingleSuffix : string.Format(this.DataServiceQuerySingleStructureTemplate, returnTypeName)));
+                }
 
-this.Write(" ");
+                this.Write("        public ");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(functionName));
+                this.Write(this.ToStringHelper.ToStringWithCulture(isReturnEntity ? returnTypeNameWithSingleSuffix : string.Format(this.DataServiceQuerySingleStructureTemplate, returnTypeName)));
 
-this.Write("(");
+                this.Write(" ");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(parameters));
+                this.Write(this.ToStringHelper.ToStringWithCulture(functionName));
 
-this.Write(this.ToStringHelper.ToStringWithCulture(useEntityReference ? ", bool useEntityReference = false" : string.Empty));
+                this.Write("(");
 
-this.Write(")\r\n        {\r\n            return ");
+                this.Write(this.ToStringHelper.ToStringWithCulture(parameters));
 
-this.Write(this.ToStringHelper.ToStringWithCulture(isReturnEntity ? "new " + returnTypeNameWithSingleSuffix + "(" : string.Empty));
+                this.Write(this.ToStringHelper.ToStringWithCulture(useEntityReference ? ", bool useEntityReference = false" : string.Empty));
 
-this.Write("this.CreateFunctionQuerySingle<");
+                this.Write(")\r\n        {\r\n            return ");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
+                this.Write(this.ToStringHelper.ToStringWithCulture(isReturnEntity ? "new " + returnTypeNameWithSingleSuffix + "(" : string.Empty));
 
-this.Write(">(\"\", \"");
+                this.Write("this.CreateFunctionQuerySingle<");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(originalFunctionName));
+                this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
 
-this.Write("\", ");
+                this.Write(">(\"\", \"");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(isComposable.ToString().ToLower()));
+                this.Write(this.ToStringHelper.ToStringWithCulture(originalFunctionName));
 
-this.Write(this.ToStringHelper.ToStringWithCulture(string.IsNullOrEmpty(parameterValues) ? string.Empty : ", " + parameterValues));
+                this.Write("\", ");
 
-this.Write(")");
+                this.Write(this.ToStringHelper.ToStringWithCulture(isComposable.ToString().ToLower()));
 
-this.Write(this.ToStringHelper.ToStringWithCulture(isReturnEntity ? ")" : string.Empty));
+                this.Write(this.ToStringHelper.ToStringWithCulture(string.IsNullOrEmpty(parameterValues) ? string.Empty : ", " + parameterValues));
 
-this.Write(";\r\n        }\r\n");
+                this.Write(")");
 
+                this.Write(this.ToStringHelper.ToStringWithCulture(isReturnEntity ? ")" : string.Empty));
 
-    }
+                this.Write(";\r\n        }\r\n");
 
-    internal override void WriteBoundFunctionInEntityTypeReturnCollectionResult(bool hideBaseMethod, string functionName, string originalFunctionName, string returnTypeName, string parameters, string fullNamespace, string parameterValues, bool isComposable, bool useEntityReference)
-        {
 
-this.Write("        /// <summary>\r\n        /// There are no comments for ");
+            }
 
-this.Write(this.ToStringHelper.ToStringWithCulture(functionName));
+            internal override void WriteBoundFunctionInEntityTypeReturnCollectionResult(bool hideBaseMethod, string functionName, string originalFunctionName, string returnTypeName, string parameters, string fullNamespace, string parameterValues, bool isComposable, bool useEntityReference)
+            {
 
-this.Write(" in the schema.\r\n        /// </summary>\r\n");
+                this.Write("        /// <summary>\r\n        /// There are no comments for ");
 
+                this.Write(this.ToStringHelper.ToStringWithCulture(functionName));
 
-        if (this.context.EnableNamingAlias)
-        {
+                this.Write(" in the schema.\r\n        /// </summary>\r\n");
 
-this.Write("        [global::Microsoft.OData.Client.OriginalNameAttribute(\"");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(originalFunctionName));
+                if (this.context.EnableNamingAlias)
+                {
 
-this.Write("\")]\r\n");
+                    this.Write("        [global::Microsoft.OData.Client.OriginalNameAttribute(\"");
 
+                    this.Write(this.ToStringHelper.ToStringWithCulture(originalFunctionName));
 
-        }
+                    this.Write("\")]\r\n");
 
-this.Write("        public ");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(hideBaseMethod ? this.OverloadsModifier : string.Empty));
+                }
 
-this.Write("global::Microsoft.OData.Client.DataServiceQuery<");
+                this.Write("        public ");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
+                this.Write(this.ToStringHelper.ToStringWithCulture(hideBaseMethod ? this.OverloadsModifier : string.Empty));
 
-this.Write("> ");
+                this.Write("global::Microsoft.OData.Client.DataServiceQuery<");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(functionName));
+                this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
 
-this.Write("(");
+                this.Write("> ");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(parameters));
+                this.Write(this.ToStringHelper.ToStringWithCulture(functionName));
 
-this.Write(this.ToStringHelper.ToStringWithCulture(useEntityReference ? ", bool useEntityReference = false" : string.Empty));
+                this.Write("(");
 
-this.Write(")\r\n        {\r\n            global::System.Uri requestUri;\r\n            Context.Try" +
-        "GetUri(this, out requestUri);\r\n            return this.Context.CreateFunctionQue" +
-        "ry<");
+                this.Write(this.ToStringHelper.ToStringWithCulture(parameters));
 
-this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
+                this.Write(this.ToStringHelper.ToStringWithCulture(useEntityReference ? ", bool useEntityReference = false" : string.Empty));
 
-this.Write(">(string.Join(\"/\", global::System.Linq.Enumerable.Select(global::System.Linq.Enum" +
-        "erable.Skip(requestUri.Segments, this.Context.BaseUri.Segments.Length), s => s.T" +
-        "rim(\'/\'))), \"");
+                this.Write(")\r\n        {\r\n            global::System.Uri requestUri;\r\n            Context.Try" +
+                        "GetUri(this, out requestUri);\r\n            return this.Context.CreateFunctionQue" +
+                        "ry<");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(fullNamespace));
+                this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
 
-this.Write(".");
+                this.Write(">(string.Join(\"/\", global::System.Linq.Enumerable.Select(global::System.Linq.Enum" +
+                        "erable.Skip(requestUri.Segments, this.Context.BaseUri.Segments.Length), s => s.T" +
+                        "rim(\'/\'))), \"");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(originalFunctionName));
+                this.Write(this.ToStringHelper.ToStringWithCulture(fullNamespace));
 
-this.Write("\", ");
+                this.Write(".");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(isComposable.ToString().ToLower()));
+                this.Write(this.ToStringHelper.ToStringWithCulture(originalFunctionName));
 
-this.Write(this.ToStringHelper.ToStringWithCulture(string.IsNullOrEmpty(parameterValues) ? string.Empty : ", " + parameterValues));
+                this.Write("\", ");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(useEntityReference ? ", bool useEntityReference = false" : string.Empty));
+                this.Write(this.ToStringHelper.ToStringWithCulture(isComposable.ToString().ToLower()));
 
-this.Write(");\r\n        }\r\n");
+                this.Write(this.ToStringHelper.ToStringWithCulture(string.IsNullOrEmpty(parameterValues) ? string.Empty : ", " + parameterValues));
 
+                this.Write(this.ToStringHelper.ToStringWithCulture(useEntityReference ? ", bool useEntityReference = false" : string.Empty));
 
-        }
-    
-    internal override void WriteBoundFunctionInEntityTypeReturnSingleResult(bool hideBaseMethod, string functionName, string originalFunctionName, string returnTypeName, string returnTypeNameWithSingleSuffix, string parameters, string fullNamespace, string parameterValues, bool isComposable, bool isReturnEntity, bool useEntityReference)
-    {
+                this.Write(");\r\n        }\r\n");
 
-this.Write("        /// <summary>\r\n        /// There are no comments for ");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(functionName));
+            }
 
-this.Write(" in the schema.\r\n        /// </summary>\r\n");
+            internal override void WriteBoundFunctionInEntityTypeReturnSingleResult(bool hideBaseMethod, string functionName, string originalFunctionName, string returnTypeName, string returnTypeNameWithSingleSuffix, string parameters, string fullNamespace, string parameterValues, bool isComposable, bool isReturnEntity, bool useEntityReference)
+            {
 
+                this.Write("        /// <summary>\r\n        /// There are no comments for ");
 
-        if (this.context.EnableNamingAlias)
-        {
+                this.Write(this.ToStringHelper.ToStringWithCulture(functionName));
 
-this.Write("        [global::Microsoft.OData.Client.OriginalNameAttribute(\"");
+                this.Write(" in the schema.\r\n        /// </summary>\r\n");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(originalFunctionName));
 
-this.Write("\")]\r\n");
+                if (this.context.EnableNamingAlias)
+                {
 
+                    this.Write("        [global::Microsoft.OData.Client.OriginalNameAttribute(\"");
 
-        }
+                    this.Write(this.ToStringHelper.ToStringWithCulture(originalFunctionName));
 
-this.Write("        public ");
+                    this.Write("\")]\r\n");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(hideBaseMethod ? this.OverloadsModifier : string.Empty));
 
-this.Write(this.ToStringHelper.ToStringWithCulture(isReturnEntity ? returnTypeNameWithSingleSuffix : string.Format(this.DataServiceQuerySingleStructureTemplate, returnTypeName)));
+                }
 
-this.Write(" ");
+                this.Write("        public ");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(functionName));
+                this.Write(this.ToStringHelper.ToStringWithCulture(hideBaseMethod ? this.OverloadsModifier : string.Empty));
 
-this.Write("(");
+                this.Write(this.ToStringHelper.ToStringWithCulture(isReturnEntity ? returnTypeNameWithSingleSuffix : string.Format(this.DataServiceQuerySingleStructureTemplate, returnTypeName)));
 
-this.Write(this.ToStringHelper.ToStringWithCulture(parameters));
+                this.Write(" ");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(useEntityReference ? ", bool useEntityReference = false" : string.Empty));
+                this.Write(this.ToStringHelper.ToStringWithCulture(functionName));
 
-this.Write(")\r\n        {\r\n            global::System.Uri requestUri;\r\n            Context.Try" +
-        "GetUri(this, out requestUri);\r\n\r\n            return ");
+                this.Write("(");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(isReturnEntity ? "new " + returnTypeNameWithSingleSuffix + "(" : string.Empty));
+                this.Write(this.ToStringHelper.ToStringWithCulture(parameters));
 
-this.Write("this.Context.CreateFunctionQuerySingle<");
+                this.Write(this.ToStringHelper.ToStringWithCulture(useEntityReference ? ", bool useEntityReference = false" : string.Empty));
 
-this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
+                this.Write(")\r\n        {\r\n            global::System.Uri requestUri;\r\n            Context.Try" +
+                        "GetUri(this, out requestUri);\r\n\r\n            return ");
 
-this.Write(">(string.Join(\"/\", global::System.Linq.Enumerable.Select(global::System.Linq.Enum" +
-        "erable.Skip(requestUri.Segments, this.Context.BaseUri.Segments.Length), s => s.T" +
-        "rim(\'/\'))), \"");
+                this.Write(this.ToStringHelper.ToStringWithCulture(isReturnEntity ? "new " + returnTypeNameWithSingleSuffix + "(" : string.Empty));
 
-this.Write(this.ToStringHelper.ToStringWithCulture(fullNamespace));
+                this.Write("this.Context.CreateFunctionQuerySingle<");
 
-this.Write(".");
+                this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
 
-this.Write(this.ToStringHelper.ToStringWithCulture(originalFunctionName));
+                this.Write(">(string.Join(\"/\", global::System.Linq.Enumerable.Select(global::System.Linq.Enum" +
+                        "erable.Skip(requestUri.Segments, this.Context.BaseUri.Segments.Length), s => s.T" +
+                        "rim(\'/\'))), \"");
 
-this.Write("\", ");
+                this.Write(this.ToStringHelper.ToStringWithCulture(fullNamespace));
 
-this.Write(this.ToStringHelper.ToStringWithCulture(isComposable.ToString().ToLower()));
+                this.Write(".");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(string.IsNullOrEmpty(parameterValues) ? string.Empty : ", " + parameterValues));
+                this.Write(this.ToStringHelper.ToStringWithCulture(originalFunctionName));
 
-this.Write(")");
+                this.Write("\", ");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(isReturnEntity ? ")" : string.Empty));
+                this.Write(this.ToStringHelper.ToStringWithCulture(isComposable.ToString().ToLower()));
 
-this.Write(";\r\n        }\r\n");
+                this.Write(this.ToStringHelper.ToStringWithCulture(string.IsNullOrEmpty(parameterValues) ? string.Empty : ", " + parameterValues));
 
+                this.Write(")");
 
-        }
+                this.Write(this.ToStringHelper.ToStringWithCulture(isReturnEntity ? ")" : string.Empty));
 
-    internal override void WriteActionImport(string actionName, string originalActionName, string returnTypeName, string parameters, string parameterValues)
-    {
+                this.Write(";\r\n        }\r\n");
 
-this.Write("        /// <summary>\r\n        /// There are no comments for ");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(actionName));
+            }
 
-this.Write(" in the schema.\r\n        /// </summary>\r\n");
+            internal override void WriteActionImport(string actionName, string originalActionName, string returnTypeName, string parameters, string parameterValues)
+            {
 
+                this.Write("        /// <summary>\r\n        /// There are no comments for ");
 
-        if (this.context.EnableNamingAlias)
-        {
+                this.Write(this.ToStringHelper.ToStringWithCulture(actionName));
 
-this.Write("        [global::Microsoft.OData.Client.OriginalNameAttribute(\"");
+                this.Write(" in the schema.\r\n        /// </summary>\r\n");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(originalActionName));
 
-this.Write("\")]\r\n");
+                if (this.context.EnableNamingAlias)
+                {
 
+                    this.Write("        [global::Microsoft.OData.Client.OriginalNameAttribute(\"");
 
-        }
+                    this.Write(this.ToStringHelper.ToStringWithCulture(originalActionName));
 
-this.Write("        public ");
+                    this.Write("\")]\r\n");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
 
-this.Write(" ");
+                }
 
-this.Write(this.ToStringHelper.ToStringWithCulture(actionName));
+                this.Write("        public ");
 
-this.Write("(");
+                this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
 
-this.Write(this.ToStringHelper.ToStringWithCulture(parameters));
+                this.Write(" ");
 
-this.Write(")\r\n        {\r\n            return new ");
+                this.Write(this.ToStringHelper.ToStringWithCulture(actionName));
 
-this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
+                this.Write("(");
 
-this.Write("(this, this.BaseUri.OriginalString.Trim(\'/\') + \"/");
+                this.Write(this.ToStringHelper.ToStringWithCulture(parameters));
 
-this.Write(this.ToStringHelper.ToStringWithCulture(originalActionName));
+                this.Write(")\r\n        {\r\n            return new ");
 
-this.Write("\"");
+                this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
 
-this.Write(this.ToStringHelper.ToStringWithCulture(string.IsNullOrEmpty(parameterValues) ? string.Empty : ", " + parameterValues));
+                this.Write("(this, this.BaseUri.OriginalString.Trim(\'/\') + \"/");
 
-this.Write(");\r\n        }\r\n");
+                this.Write(this.ToStringHelper.ToStringWithCulture(originalActionName));
 
+                this.Write("\"");
 
-    }
+                this.Write(this.ToStringHelper.ToStringWithCulture(string.IsNullOrEmpty(parameterValues) ? string.Empty : ", " + parameterValues));
 
-    internal override void WriteBoundActionInEntityType(bool hideBaseMethod, string actionName, string originalActionName, string returnTypeName, string parameters, string fullNamespace, string parameterValues)
-    {
+                this.Write(");\r\n        }\r\n");
 
-this.Write("        /// <summary>\r\n        /// There are no comments for ");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(actionName));
+            }
 
-this.Write(" in the schema.\r\n        /// </summary>\r\n");
+            internal override void WriteBoundActionInEntityType(bool hideBaseMethod, string actionName, string originalActionName, string returnTypeName, string parameters, string fullNamespace, string parameterValues)
+            {
 
+                this.Write("        /// <summary>\r\n        /// There are no comments for ");
 
-        if (this.context.EnableNamingAlias)
-        {
+                this.Write(this.ToStringHelper.ToStringWithCulture(actionName));
 
-this.Write("        [global::Microsoft.OData.Client.OriginalNameAttribute(\"");
+                this.Write(" in the schema.\r\n        /// </summary>\r\n");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(originalActionName));
 
-this.Write("\")]\r\n");
+                if (this.context.EnableNamingAlias)
+                {
 
+                    this.Write("        [global::Microsoft.OData.Client.OriginalNameAttribute(\"");
 
-        }
+                    this.Write(this.ToStringHelper.ToStringWithCulture(originalActionName));
 
-this.Write("        public ");
+                    this.Write("\")]\r\n");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(hideBaseMethod ? this.OverloadsModifier : string.Empty));
 
-this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
+                }
 
-this.Write(" ");
+                this.Write("        public ");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(actionName));
+                this.Write(this.ToStringHelper.ToStringWithCulture(hideBaseMethod ? this.OverloadsModifier : string.Empty));
 
-this.Write("(");
+                this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
 
-this.Write(this.ToStringHelper.ToStringWithCulture(parameters));
+                this.Write(" ");
 
-this.Write(@")
+                this.Write(this.ToStringHelper.ToStringWithCulture(actionName));
+
+                this.Write("(");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(parameters));
+
+                this.Write(@")
         {
             global::Microsoft.OData.Client.EntityDescriptor resource = Context.EntityTracker.TryGetEntityDescriptor(this);
             if (resource == null)
@@ -5176,408 +5151,478 @@ this.Write(@")
 
             return new ");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
+                this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
 
-this.Write("(this.Context, resource.EditLink.OriginalString.Trim(\'/\') + \"/");
+                this.Write("(this.Context, resource.EditLink.OriginalString.Trim(\'/\') + \"/");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(fullNamespace));
+                this.Write(this.ToStringHelper.ToStringWithCulture(fullNamespace));
 
-this.Write(".");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(originalActionName));
-
-this.Write("\"");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(string.IsNullOrEmpty(parameterValues) ? string.Empty : ", " + parameterValues));
-
-this.Write(");\r\n        }\r\n");
-
-
-    }
-    
-    internal override void WriteExtensionMethodsStart()
-    {
-
-this.Write("    /// <summary>\r\n    /// Class containing all extension methods\r\n    /// </summ" +
-        "ary>\r\n    public static class ExtensionMethods\r\n    {\r\n");
-
- 
-    }
-
-    internal override void WriteExtensionMethodsEnd()
-    {
-
-this.Write("    }\r\n");
-
-
-    }
-
-    internal override void WriteByKeyMethods(string entityTypeName, string returnTypeName, IEnumerable<string> keys, string keyParameters, string keyDictionaryItems)
-    {
-
-this.Write("        /// <summary>\r\n        /// Get an entity of type ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(entityTypeName));
-
-this.Write(" as ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
-
-this.Write(" specified by key from an entity set\r\n        /// </summary>\r\n        /// <param " +
-        "name=\"_source\">source entity set</param>\r\n        /// <param name=\"keys\">dictiona" +
-        "ry with the names and values of keys</param>\r\n        public static ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
-
-this.Write(" ByKey(this global::Microsoft.OData.Client.DataServiceQuery<");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(entityTypeName));
-
-this.Write("> _source, global::System.Collections.Generic.Dictionary<string, object> keys)\r\n  " +
-        "      {\r\n            return new ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
-
-this.Write("(_source.Context, _source.GetKeyPath(global::Microsoft.OData.Client.Serializer.GetK" +
-        "eyString(_source.Context, keys)));\r\n        }\r\n        /// <summary>\r\n        ///" +
-        " Get an entity of type ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(entityTypeName));
-
-this.Write(" as ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
-
-this.Write(" specified by key from an entity set\r\n        /// </summary>\r\n        /// <param " +
-        "name=\"_source\">source entity set</param>\r\n");
-
-
-        foreach (var key in keys)
-        {
-
-this.Write("        /// <param name=\"");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(key));
-
-this.Write("\">The value of ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(key));
-
-this.Write("</param>\r\n");
-
-
-        }
-
-this.Write("        public static ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
-
-this.Write(" ByKey(this global::Microsoft.OData.Client.DataServiceQuery<");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(entityTypeName));
-
-this.Write("> _source,\r\n            ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(keyParameters));
-
-this.Write(")\r\n        {\r\n            global::System.Collections.Generic.Dictionary<string, o" +
-        "bject> keys = new global::System.Collections.Generic.Dictionary<string, object>\r" +
-        "\n            {\r\n                ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(keyDictionaryItems));
-
-this.Write("\r\n            };\r\n            return new ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
-
-this.Write("(_source.Context, _source.GetKeyPath(global::Microsoft.OData.Client.Serializer.GetK" +
-        "eyString(_source.Context, keys)));\r\n        }\r\n");
-
-
-    }
-
-    internal override void WriteCastToMethods(string baseTypeName, string derivedTypeName, string derivedTypeFullName, string returnTypeName)
-    {
-
-this.Write("        /// <summary>\r\n        /// Cast an entity of type ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(baseTypeName));
-
-this.Write(" to its derived type ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(derivedTypeFullName));
-
-this.Write("\r\n        /// </summary>\r\n        /// <param name=\"_source\">source entity</param>\r" +
-        "\n        public static ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
-
-this.Write(" CastTo");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(derivedTypeName));
-
-this.Write("(this global::Microsoft.OData.Client.DataServiceQuerySingle<");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(baseTypeName));
-
-this.Write("> _source)\r\n        {\r\n            global::Microsoft.OData.Client.DataServiceQuery" +
-        "Single<");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(derivedTypeFullName));
-
-this.Write("> query = _source.CastTo<");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(derivedTypeFullName));
-
-this.Write(">();\r\n            return new ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
-
-this.Write("(_source.Context, query.GetPath(null));\r\n        }\r\n");
-
-
-    }
-
-    internal override void WriteBoundFunctionReturnSingleResultAsExtension(string functionName, string originalFunctionName, string boundTypeName, string returnTypeName, string returnTypeNameWithSingleSuffix, string parameters, string fullNamespace, string parameterValues, bool isComposable, bool isReturnEntity, bool useEntityReference)
-    {
-
-this.Write("        /// <summary>\r\n        /// There are no comments for ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(functionName));
-
-this.Write(" in the schema.\r\n        /// </summary>\r\n");
-
-
-        if (this.context.EnableNamingAlias)
-        {
-
-this.Write("        [global::Microsoft.OData.Client.OriginalNameAttribute(\"");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(originalFunctionName));
-
-this.Write("\")]\r\n");
-
-
-        }
-
-this.Write("        public static ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(isReturnEntity ? returnTypeNameWithSingleSuffix : string.Format(this.DataServiceQuerySingleStructureTemplate, returnTypeName)));
-
-this.Write(" ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(functionName));
-
-this.Write("(this ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(boundTypeName));
-
-this.Write(" _source");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(string.IsNullOrEmpty(parameters) ? string.Empty : ", " + parameters));
-
-this.Write(this.ToStringHelper.ToStringWithCulture(useEntityReference ? ", bool useEntityReference = false" : string.Empty));
-
-this.Write(")\r\n        {\r\n            if (!_source.IsComposable)\r\n            {\r\n             " +
-        "   throw new global::System.NotSupportedException(\"The previous function is not " +
-        "composable.\");\r\n            }\r\n\r\n            return ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(isReturnEntity ? "new " + returnTypeNameWithSingleSuffix + "(" : string.Empty));
-
-this.Write("_source.CreateFunctionQuerySingle<");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
-
-this.Write(">(\"");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(fullNamespace));
-
-this.Write(".");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(originalFunctionName));
-
-this.Write("\", ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(isComposable.ToString().ToLower()));
-
-this.Write(this.ToStringHelper.ToStringWithCulture(string.IsNullOrEmpty(parameterValues) ? string.Empty : ", " + parameterValues));
-
-this.Write(")");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(isReturnEntity ? ")" : string.Empty));
-
-this.Write(";\r\n        }\r\n");
-
-
-    }
-
-    internal override void WriteBoundFunctionReturnCollectionResultAsExtension(string functionName, string originalFunctionName, string boundTypeName, string returnTypeName, string parameters, string fullNamespace, string parameterValues, bool isComposable, bool useEntityReference)
-    {
-
-this.Write("        /// <summary>\r\n        /// There are no comments for ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(functionName));
-
-this.Write(" in the schema.\r\n        /// </summary>\r\n");
-
-
-        if (this.context.EnableNamingAlias)
-        {
-
-this.Write("        [global::Microsoft.OData.Client.OriginalNameAttribute(\"");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(originalFunctionName));
-
-this.Write("\")]\r\n");
-
-
-        }
-
-this.Write("        public static global::Microsoft.OData.Client.DataServiceQuery<");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
-
-this.Write("> ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(functionName));
-
-this.Write("(this ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(boundTypeName));
-
-this.Write(" _source");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(string.IsNullOrEmpty(parameters) ? string.Empty : ", " + parameters));
-
-this.Write(this.ToStringHelper.ToStringWithCulture(useEntityReference ? ", bool useEntityReference = true" : string.Empty));
-
-this.Write(")\r\n        {\r\n            if (!_source.IsComposable)\r\n            {\r\n             " +
-        "   throw new global::System.NotSupportedException(\"The previous function is not " +
-        "composable.\");\r\n            }\r\n\r\n            return _source.CreateFunctionQuery<");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
-
-this.Write(">(\"");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(fullNamespace));
-
-this.Write(".");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(originalFunctionName));
-
-this.Write("\", ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(isComposable.ToString().ToLower()));
-
-this.Write(this.ToStringHelper.ToStringWithCulture(string.IsNullOrEmpty(parameterValues) ? string.Empty : ", " + parameterValues));
-
-this.Write(");\r\n        }\r\n");
-
-
-    }
-
-    internal override void WriteBoundActionAsExtension(string actionName, string originalActionName, string boundSourceType, string returnTypeName, string parameters, string fullNamespace, string parameterValues)
-    {
-        string parsedActionName = this.ToStringHelper.ToStringWithCulture(actionName);
-
-this.Write("        /// <summary>\r\n        /// There are no comments for ");
-
-this.Write(parsedActionName);
-
-this.Write(" in the schema.\r\n        /// </summary>\r\n");
-
-
-        if (this.context.EnableNamingAlias)
-        {
-
-this.Write("        [global::Microsoft.OData.Client.OriginalNameAttribute(\"");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(originalActionName));
-
-this.Write("\")]\r\n");
-
-
-        }
-
-this.Write("        public static ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
-
-this.Write(" ");
-
-this.Write(parsedActionName);
-
-this.Write("(this ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(boundSourceType));
-
-this.Write(" _source");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(string.IsNullOrEmpty(parameters) ? string.Empty : ", " + parameters));
-
-this.Write(")\r\n        {\r\n            if (!_source.IsComposable)\r\n            {\r\n             " +
-        "   throw new global::System.NotSupportedException(\"The previous function is not " +
-        "composable.\");\r\n            }\r\n\r\n            return new ");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
-
-this.Write("(_source.Context, _source.AppendRequestUri(\"");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(fullNamespace));
-
-this.Write(".");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(originalActionName));
-
-this.Write("\")");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(string.IsNullOrEmpty(parameterValues) ? string.Empty : ", " + parameterValues));
-
-this.Write(");\r\n        }\r\n");
-
-        // Write out a overload of the action that accepts a single object input parameter if input wrapper should be generated.
-        if(this.context.GenerateActionInputWrapperClasses && !string.IsNullOrEmpty(parameters))
-        {
-            this.Write("        /// <summary>\r\n        /// There are no comments for ");
-
-            this.Write(parsedActionName);
-
-            this.Write(" in the schema.\r\n        /// </summary>\r\n");
-
-
-            if (this.context.EnableNamingAlias)
-            {
-
-                this.Write("        [global::Microsoft.OData.Client.OriginalNameAttribute(\"");
+                this.Write(".");
 
                 this.Write(this.ToStringHelper.ToStringWithCulture(originalActionName));
 
-                this.Write("\")]\r\n");
+                this.Write("\"");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(string.IsNullOrEmpty(parameterValues) ? string.Empty : ", " + parameterValues));
+
+                this.Write(");\r\n        }\r\n");
 
 
             }
 
-            this.Write("        public static ");
+            internal override void WriteExtensionMethodsStart()
+            {
 
-            this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
+                this.Write("    /// <summary>\r\n    /// Class containing all extension methods\r\n    /// </summ" +
+                        "ary>\r\n    public static class ExtensionMethods\r\n    {\r\n");
 
-            this.Write(" ");
 
-            this.Write(parsedActionName);
+            }
 
-            this.Write("(this ");
+            internal override void WriteExtensionMethodsEnd()
+            {
 
-            this.Write(this.ToStringHelper.ToStringWithCulture(boundSourceType));
+                this.Write("    }\r\n");
 
-            this.Write(" _source");
 
-            this.Write(this.ToStringHelper.ToStringWithCulture(", " + parsedActionName + "_Request request"));
+            }
 
-            this.Write(")\r\n        {\r\n            return _source." + parsedActionName + "(" + String.Join(", ", parameterValues.Split(',').Select(x => "request." + x)));
-            this.Write(");\r\n        }\r\n");
-        }
- 
-    }
+            internal override void WriteByKeyMethods(string entityTypeName, string returnTypeName, IEnumerable<string> keys, string keyParameters, string keyDictionaryItems)
+            {
+
+                this.Write("        /// <summary>\r\n        /// Get an entity of type ");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(entityTypeName));
+
+                this.Write(" as ");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
+
+                this.Write(" specified by key from an entity set\r\n        /// </summary>\r\n        /// <param " +
+                        "name=\"_source\">source entity set</param>\r\n        /// <param name=\"keys\">dictiona" +
+                        "ry with the names and values of keys</param>\r\n        public static ");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
+
+                this.Write(" ByKey(this global::Microsoft.OData.Client.DataServiceQuery<");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(entityTypeName));
+
+                this.Write("> _source, global::System.Collections.Generic.Dictionary<string, object> keys)\r\n  " +
+                        "      {\r\n            return new ");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
+
+                this.Write("(_source.Context, _source.GetKeyPath(global::Microsoft.OData.Client.Serializer.GetK" +
+                        "eyString(_source.Context, keys)));\r\n        }\r\n        /// <summary>\r\n        ///" +
+                        " Get an entity of type ");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(entityTypeName));
+
+                this.Write(" as ");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
+
+                this.Write(" specified by key from an entity set\r\n        /// </summary>\r\n        /// <param " +
+                        "name=\"_source\">source entity set</param>\r\n");
+
+
+                foreach (var key in keys)
+                {
+
+                    this.Write("        /// <param name=\"");
+
+                    this.Write(this.ToStringHelper.ToStringWithCulture(key));
+
+                    this.Write("\">The value of ");
+
+                    this.Write(this.ToStringHelper.ToStringWithCulture(key));
+
+                    this.Write("</param>\r\n");
+
+
+                }
+
+                this.Write("        public static ");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
+
+                this.Write(" ByKey(this global::Microsoft.OData.Client.DataServiceQuery<");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(entityTypeName));
+
+                this.Write("> _source,\r\n            ");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(keyParameters));
+
+                this.Write(")\r\n        {\r\n            global::System.Collections.Generic.Dictionary<string, o" +
+                        "bject> keys = new global::System.Collections.Generic.Dictionary<string, object>\r" +
+                        "\n            {\r\n                ");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(keyDictionaryItems));
+
+                this.Write("\r\n            };\r\n            return new ");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
+
+                this.Write("(_source.Context, _source.GetKeyPath(global::Microsoft.OData.Client.Serializer.GetK" +
+                        "eyString(_source.Context, keys)));\r\n        }\r\n");
+
+
+            }
+
+            internal override void WriteCastToMethods(string baseTypeName, string derivedTypeName, string derivedTypeFullName, string returnTypeName)
+            {
+
+                this.Write("        /// <summary>\r\n        /// Cast an entity of type ");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(baseTypeName));
+
+                this.Write(" to its derived type ");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(derivedTypeFullName));
+
+                this.Write("\r\n        /// </summary>\r\n        /// <param name=\"_source\">source entity</param>\r" +
+                        "\n        public static ");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
+
+                this.Write(" CastTo");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(derivedTypeName));
+
+                this.Write("(this global::Microsoft.OData.Client.DataServiceQuerySingle<");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(baseTypeName));
+
+                this.Write("> _source)\r\n        {\r\n            global::Microsoft.OData.Client.DataServiceQuery" +
+                        "Single<");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(derivedTypeFullName));
+
+                this.Write("> query = _source.CastTo<");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(derivedTypeFullName));
+
+                this.Write(">();\r\n            return new ");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
+
+                this.Write("(_source.Context, query.GetPath(null));\r\n        }\r\n");
+
+
+            }
+
+            internal override void WriteBoundFunctionReturnSingleResultAsExtension(string functionName, string originalFunctionName, string boundTypeName, string returnTypeName, string returnTypeNameWithSingleSuffix, string parameters, string fullNamespace, string parameterValues, bool isComposable, bool isReturnEntity, bool useEntityReference)
+            {
+
+                this.Write("        /// <summary>\r\n        /// There are no comments for ");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(functionName));
+
+                this.Write(" in the schema.\r\n        /// </summary>\r\n");
+
+
+                if (this.context.EnableNamingAlias)
+                {
+
+                    this.Write("        [global::Microsoft.OData.Client.OriginalNameAttribute(\"");
+
+                    this.Write(this.ToStringHelper.ToStringWithCulture(originalFunctionName));
+
+                    this.Write("\")]\r\n");
+
+
+                }
+
+                this.Write("        public static ");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(isReturnEntity ? returnTypeNameWithSingleSuffix : string.Format(this.DataServiceQuerySingleStructureTemplate, returnTypeName)));
+
+                this.Write(" ");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(functionName));
+
+                this.Write("(this ");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(boundTypeName));
+
+                this.Write(" _source");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(string.IsNullOrEmpty(parameters) ? string.Empty : ", " + parameters));
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(useEntityReference ? ", bool useEntityReference = false" : string.Empty));
+
+                this.Write(")\r\n        {\r\n            if (!_source.IsComposable)\r\n            {\r\n             " +
+                        "   throw new global::System.NotSupportedException(\"The previous function is not " +
+                        "composable.\");\r\n            }\r\n\r\n            return ");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(isReturnEntity ? "new " + returnTypeNameWithSingleSuffix + "(" : string.Empty));
+
+                this.Write("_source.CreateFunctionQuerySingle<");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
+
+                this.Write(">(\"");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(fullNamespace));
+
+                this.Write(".");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(originalFunctionName));
+
+                this.Write("\", ");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(isComposable.ToString().ToLower()));
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(string.IsNullOrEmpty(parameterValues) ? string.Empty : ", " + parameterValues));
+
+                this.Write(")");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(isReturnEntity ? ")" : string.Empty));
+
+                this.Write(";\r\n        }\r\n");
+
+
+            }
+
+            internal override void WriteBoundFunctionReturnCollectionResultAsExtension(string functionName, string originalFunctionName, string boundTypeName, string returnTypeName, string parameters, string fullNamespace, string parameterValues, bool isComposable, bool useEntityReference)
+            {
+
+                this.Write("        /// <summary>\r\n        /// There are no comments for ");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(functionName));
+
+                this.Write(" in the schema.\r\n        /// </summary>\r\n");
+
+
+                if (this.context.EnableNamingAlias)
+                {
+
+                    this.Write("        [global::Microsoft.OData.Client.OriginalNameAttribute(\"");
+
+                    this.Write(this.ToStringHelper.ToStringWithCulture(originalFunctionName));
+
+                    this.Write("\")]\r\n");
+
+
+                }
+
+                this.Write("        public static global::Microsoft.OData.Client.DataServiceQuery<");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
+
+                this.Write("> ");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(functionName));
+
+                this.Write("(this ");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(boundTypeName));
+
+                this.Write(" _source");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(string.IsNullOrEmpty(parameters) ? string.Empty : ", " + parameters));
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(useEntityReference ? ", bool useEntityReference = true" : string.Empty));
+
+                this.Write(")\r\n        {\r\n            if (!_source.IsComposable)\r\n            {\r\n             " +
+                        "   throw new global::System.NotSupportedException(\"The previous function is not " +
+                        "composable.\");\r\n            }\r\n\r\n            return _source.CreateFunctionQuery<");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
+
+                this.Write(">(\"");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(fullNamespace));
+
+                this.Write(".");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(originalFunctionName));
+
+                this.Write("\", ");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(isComposable.ToString().ToLower()));
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(string.IsNullOrEmpty(parameterValues) ? string.Empty : ", " + parameterValues));
+
+                this.Write(");\r\n        }\r\n");
+
+
+            }
+
+            internal override void WriteBoundActionAsExtension(string actionName, string originalActionName, string boundSourceType, string returnTypeName, string parameters, string fullNamespace, string parameterValues)
+            {
+                string parsedActionName = this.ToStringHelper.ToStringWithCulture(actionName);
+
+                this.Write("        /// <summary>\r\n        /// There are no comments for ");
+
+                this.Write(parsedActionName);
+
+                this.Write(" in the schema.\r\n        /// </summary>\r\n");
+
+
+                if (this.context.EnableNamingAlias)
+                {
+
+                    this.Write("        [global::Microsoft.OData.Client.OriginalNameAttribute(\"");
+
+                    this.Write(this.ToStringHelper.ToStringWithCulture(originalActionName));
+
+                    this.Write("\")]\r\n");
+
+
+                }
+
+                this.Write("        public static ");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
+
+                this.Write(" ");
+
+                this.Write(parsedActionName);
+
+                this.Write("(this ");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(boundSourceType));
+
+                this.Write(" _source");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(string.IsNullOrEmpty(parameters) ? string.Empty : ", " + parameters));
+
+                this.Write(")\r\n        {\r\n            if (!_source.IsComposable)\r\n            {\r\n             " +
+                        "   throw new global::System.NotSupportedException(\"The previous function is not " +
+                        "composable.\");\r\n            }\r\n\r\n            return new ");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
+
+                this.Write("(_source.Context, _source.AppendRequestUri(\"");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(fullNamespace));
+
+                this.Write(".");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(originalActionName));
+
+                this.Write("\")");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(string.IsNullOrEmpty(parameterValues) ? string.Empty : ", " + parameterValues));
+
+                this.Write(");\r\n        }\r\n");
+
+                // Write out a overload of the action that accepts a single object input parameter if input wrapper should be generated.
+                // But only if there is more than 1 single parameter
+                if (this.context.GenerateActionInputWrapperClasses && !string.IsNullOrEmpty(parameters) && parameters.Split(',').Length > 1)
+                {
+                    System.Diagnostics.Debugger.Launch();
+                    this.Write("        /// <summary>\r\n        /// There are no comments for ");
+
+                    this.Write(parsedActionName);
+
+                    this.Write(" in the schema.\r\n        /// </summary>\r\n");
+
+
+                    if (this.context.EnableNamingAlias)
+                    {
+
+                        this.Write("        [global::Microsoft.OData.Client.OriginalNameAttribute(\"");
+
+                        this.Write(this.ToStringHelper.ToStringWithCulture(originalActionName));
+
+                        this.Write("\")]\r\n");
+
+
+                    }
+
+                    this.Write("        public static ");
+
+                    this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
+
+                    this.Write(" ");
+
+                    this.Write(parsedActionName);
+
+                    this.Write("(this ");
+
+                    this.Write(this.ToStringHelper.ToStringWithCulture(boundSourceType));
+
+                    this.Write(" _source");
+
+                    string requestClassName = boundSourceType;
+                    while(requestClassName.Contains("<"))
+                    {
+                        requestClassName = requestClassName.Substring(0, requestClassName.IndexOf('>'));
+                        // find the last '<' that is the start of our class name
+                        requestClassName = requestClassName.Substring(requestClassName.LastIndexOf('<') + 1);
+                    }
+                    // strip the global identifier
+                    if (requestClassName.Contains("::"))
+                        requestClassName = requestClassName.Substring(requestClassName.IndexOf("::") + 2);
+
+                    requestClassName = $"{requestClassName.Replace(".","_")}_{parsedActionName}{WrappedActionClassSuffix}";
+
+                    var propertyDeclarations = parameters.Split(',');
+                    var propertyNames = propertyDeclarations.Select(x => x.Substring(x.LastIndexOf(' ') + 1)).ToArray();
+                    var propertyTypes = propertyDeclarations.Select(x => x.Substring(0, x.LastIndexOf(' '))).ToArray();
+
+
+                    this.Write(this.ToStringHelper.ToStringWithCulture(", " + requestClassName + " request"));
+
+                    this.Write(")\r\n        {\r\n            return _source." + parsedActionName + "(" + String.Join(", ", propertyNames.Select(x => "request." + x)));
+                    this.Write(");\r\n        }\r\n");
+
+                    // TODO: move this to inside the Class definition of the type that is being extended...
+                    // Just make it happen :)
+                    // for now, because we have nowhere else to do it, just generate the class right here
+                    if (context.GenerateActionInputWrapperClasses)
+                    {
+                        // if this type has bound actions that accept parameters, then we need to write a type definition as a request object for each action.
+                        // NOTE: we write these as nested classes to reduce the possibility of name and structure clashes.
+                        // If your API design has multiple actions with the same signature, you should implement a structured type at the API level, don't try to be too smart on the client generation.
+                        //this.WriteSummaryCommentForStructuredType(requestClassName);
+
+                        string baseTypeName = String.Empty;
+                        if (this.context.UseDataServiceCollection)
+                        {
+                            if (this.context.TargetLanguage == LanguageOption.CSharp)
+                            {
+                                baseTypeName += string.IsNullOrEmpty(baseTypeName) ? this.ClassInheritMarker : ", ";
+                            }
+
+                            baseTypeName += this.NotifyPropertyChangedModifier;
+                        }
+
+                        this.WriteClassStartForStructuredType(String.Empty, requestClassName, requestClassName, baseTypeName);
+
+
+                        
+                        // Private name should not confict with field name
+                        UniqueIdentifierService uniqueIdentifierService = new UniqueIdentifierService(propertyNames, this.context.TargetLanguage == LanguageOption.CSharp);
+
+                        for (int i = 0; i < propertyNames.Length; i++)
+                        {
+                            var propertyName = propertyNames[i];
+                            var propertyType = propertyTypes[i];
+                            string privatePropertyName = uniqueIdentifierService.GetUniqueIdentifier("_" + propertyName);
+
+                            this.WritePropertyForStructuredType(
+                                propertyType,
+                                propertyName,
+                                propertyName,
+                                GetFixedName(propertyName),
+                                privatePropertyName,
+                                "default",
+                                context.UseDataServiceCollection);
+                        }
+
+                        WriteINotifyPropertyChangedImplementation();
+                        this.WriteClassEndForStructuredType();
+                    }
+                }
+
+            }
+
+        
 
     internal override void WriteNamespaceEnd()
     {

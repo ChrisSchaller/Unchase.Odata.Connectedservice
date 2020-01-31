@@ -65,6 +65,7 @@ namespace Unchase.OData.ConnectedService.Templates
                         IgnoreUnexpectedElementsAndAttributes = this.IgnoreUnexpectedElementsAndAttributes,
                         GenerateDynamicPropertiesCollection = this.GenerateDynamicPropertiesCollection,
                         DynamicPropertiesCollectionName = this.DynamicPropertiesCollectionName,
+                        GenerateActionInputWrapperClasses = this.GenerateActionInputWrapperClasses,
                         ExcludedOperationImportsNames = this.ExcludedOperationImportsNames
                     };
                 }
@@ -86,6 +87,7 @@ namespace Unchase.OData.ConnectedService.Templates
                         IgnoreUnexpectedElementsAndAttributes = this.IgnoreUnexpectedElementsAndAttributes,
                         GenerateDynamicPropertiesCollection = this.GenerateDynamicPropertiesCollection,
                         DynamicPropertiesCollectionName = this.DynamicPropertiesCollectionName,
+                        GenerateActionInputWrapperClasses = this.GenerateActionInputWrapperClasses,
                         ExcludedOperationImportsNames = this.ExcludedOperationImportsNames
                     };
                 }
@@ -173,6 +175,11 @@ public static class Configuration
     // GenerateDynamicPropertiesCollection is set to true. This value must be
     // a valid identifier name.
     public const string DynamicPropertiesCollectionName = "DynamicProperties";
+
+    // This flag indicates whether to generate wrapper classes around the input arguments for actions so they can be passed as a single entity
+    // this was the default behavior in SOAP and WCF services client generation, but is still relevant today as it allows advanced user interface
+    // option such as binding these classes directly to the UI as simple view models, this feature is most powerful when combined with `UseDataServiceCollection`
+    public const bool GenerateActionInputWrapperClasses = false;
 
     // The string for the comma separated OperationImports (ActionImports and FunctionImports) names in metadata to exclude from generated code. 
     public const string ExcludedOperationImportsNames = "";
@@ -371,6 +378,15 @@ public string DynamicPropertiesCollectionName
 }
 
 /// <summary>
+/// Generate classes to wrap action input arguments so they can be passed as a single entity, and these classes can then be used as simple view models that can be bound to user interfaces
+/// </summary>
+public bool GenerateActionInputWrapperClasses
+{
+    get;
+    set;
+}
+
+/// <summary>
 /// The string for the comma separated OperationImports (ActionImports and FunctionImports) names in metadata to exclude from generated code.
 /// </summary>
 public string ExcludedOperationImportsNames
@@ -514,6 +530,26 @@ public void ValidateAndSetGenerateDynamicPropertiesCollectionFromString(string s
 }
 
 /// <summary>
+/// Set the GenerateActionInputWrapperClasses property with the given value.
+/// </summary>
+/// <param name="stringValue">The value to set.</param>
+public void ValidateAndSetGenerateActionInputWrapperClassesFromString(string stringValue)
+{
+    bool boolValue;
+    if (!bool.TryParse(stringValue, out boolValue))
+    {
+        // ********************************************************************************************************
+        // To fix this error, if the current text transformation is run by the TextTemplatingFileGenerator
+        // custom tool inside Visual Studio, update the .odata.config file in the project with a valid parameter
+        // value then hit Ctrl-S to save the .tt file to refresh the code generation.
+        // ********************************************************************************************************
+        throw new ArgumentException(string.Format("The value \"{0}\" cannot be assigned to the GenerateActionInputWrapperClasses parameter because it is not a valid boolean value.", stringValue));
+    }
+
+    this.GenerateActionInputWrapperClasses = boolValue;
+}
+
+/// <summary>
 /// Reads the parameter values from the Configuration class and applies them.
 /// </summary>
 private void ApplyParametersFromConfigurationClass()
@@ -528,6 +564,7 @@ private void ApplyParametersFromConfigurationClass()
     this.IgnoreUnexpectedElementsAndAttributes = Configuration.IgnoreUnexpectedElementsAndAttributes;
     this.GenerateDynamicPropertiesCollection = Configuration.GenerateDynamicPropertiesCollection;
     this.DynamicPropertiesCollectionName = Configuration.DynamicPropertiesCollectionName;
+    this.GenerateActionInputWrapperClasses = Configuration.GenerateActionInputWrapperClasses;
     this.ExcludedOperationImportsNames = Configuration.ExcludedOperationImportsNames;
 }
 
@@ -593,6 +630,12 @@ private void ApplyParametersFromCommandLine()
     if (!string.IsNullOrEmpty(dynamicPropertiesCollectionName))
     {
         this.DynamicPropertiesCollectionName = dynamicPropertiesCollectionName;
+    }
+
+    string generateActionInputWrapperClasses = this.Host.ResolveParameterValue("notempty", "notempty", "GenerateActionInputWrapperClasses");
+    if (!string.IsNullOrEmpty(generateActionInputWrapperClasses))
+    {
+        this.ValidateAndSetGenerateActionInputWrapperClassesFromString(generateActionInputWrapperClasses);
     }
 
     string excludedOperationImportsNames = this.Host.ResolveParameterValue("notempty", "notempty", "ExcludedOperationImportsNames");
@@ -945,7 +988,7 @@ public class CodeGenerationContext
     }
 
     /// <summary>
-    /// true to generate open type property dirctionary, false otherwise.
+    /// true to generate open type property dictionary, false otherwise.
     /// </summary>
     public bool GenerateDynamicPropertiesCollection
     {
@@ -963,9 +1006,18 @@ public class CodeGenerationContext
     }
 
     /// <summary>
+    /// Generate classes to wrap action input arguments so they can be passed as a single entity, and these classes can then be used as simple view models that can be bound to user interfaces
+    /// </summary>
+    public bool GenerateActionInputWrapperClasses
+    {
+        get;
+        set;
+    }
+
+    /// <summary>
     /// The string for the comma separated OperationImports (ActionImports and FunctionImports) names in metadata to exclude from generated code.
     /// </summary>
-    public string ExcludedOperationImportsNames
+            public string ExcludedOperationImportsNames
     {
         get => this.excludedOperationImportsNames;
 
@@ -1196,6 +1248,7 @@ public abstract class ODataClientTemplate : TemplateBase
     }
 
     internal string SingleSuffix => "Single";
+    internal string WrappedActionClassSuffix => "_Request";
 
     #region Get Language specific keyword names.
     internal abstract string GlobalPrefix { get; }
@@ -1942,6 +1995,31 @@ public abstract class ODataClientTemplate : TemplateBase
         {
             this.WritePropertiesForSingleType(current.DeclaredProperties);
             current = (IEdmEntityType)current.BaseType;
+        }
+
+        if (context.GenerateActionInputWrapperClasses)
+        {
+            // if this type has bound actions that accept parameters, then we need to write a type definition as a request object for each action.
+            // NOTE: we write these as nested classes to reduce the possibility of name and structure clashes.
+            // If your API design has multiple actions with the same signature, you should implement a structured type at the API level, don't try to be too smart on the client generation.
+            foreach( var action in actions)
+            { 
+                string subTypeName = $"{action name}_Request";
+                this.WriteSummaryCommentForStructuredType(entityTypeName + this.WrappedActionClassSuffix);
+                this.WriteStructuredTypeDeclaration(entityTypeName,
+                    this.ClassInheritMarker + string.Format(this.DataServiceQuerySingleStructureTemplate, GetFixedName(entityTypeName)),
+                    this.SingleSuffix);
+                string singleTypeName = (this.context.EnableNamingAlias ?
+                    Customization.CustomizeNaming(((IEdmSchemaElement)entityType).Name) : ((IEdmSchemaElement)entityType).Name) + this.SingleSuffix;
+                this.WriteConstructorForSingleType(GetFixedName(singleTypeName), string.Format(this.DataServiceQuerySingleStructureTemplate, GetFixedName(entityTypeName)));
+                IEdmEntityType current = entityType;
+                while (current != null)
+                {
+                    this.WritePropertiesForSingleType(current.DeclaredProperties);
+                    current = (IEdmEntityType)current.BaseType;
+                }
+                this.WriteClassEndForStructuredType();
+            }
         }
 
         this.WriteClassEndForStructuredType();
@@ -5400,10 +5478,11 @@ this.Write(");\r\n        }\r\n");
 
     internal override void WriteBoundActionAsExtension(string actionName, string originalActionName, string boundSourceType, string returnTypeName, string parameters, string fullNamespace, string parameterValues)
     {
+        string parsedActionName = this.ToStringHelper.ToStringWithCulture(actionName);
 
 this.Write("        /// <summary>\r\n        /// There are no comments for ");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(actionName));
+this.Write(parsedActionName);
 
 this.Write(" in the schema.\r\n        /// </summary>\r\n");
 
@@ -5426,7 +5505,7 @@ this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
 
 this.Write(" ");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(actionName));
+this.Write(parsedActionName);
 
 this.Write("(this ");
 
@@ -5456,6 +5535,47 @@ this.Write(this.ToStringHelper.ToStringWithCulture(string.IsNullOrEmpty(paramete
 
 this.Write(");\r\n        }\r\n");
 
+        // Write out a overload of the action that accepts a single object input parameter if input wrapper should be generated.
+        if(this.context.GenerateActionInputWrapperClasses && !string.IsNullOrEmpty(parameters))
+        {
+            this.Write("        /// <summary>\r\n        /// There are no comments for ");
+
+            this.Write(parsedActionName);
+
+            this.Write(" in the schema.\r\n        /// </summary>\r\n");
+
+
+            if (this.context.EnableNamingAlias)
+            {
+
+                this.Write("        [global::Microsoft.OData.Client.OriginalNameAttribute(\"");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(originalActionName));
+
+                this.Write("\")]\r\n");
+
+
+            }
+
+            this.Write("        public static ");
+
+            this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
+
+            this.Write(" ");
+
+            this.Write(parsedActionName);
+
+            this.Write("(this ");
+
+            this.Write(this.ToStringHelper.ToStringWithCulture(boundSourceType));
+
+            this.Write(" _source");
+
+            this.Write(this.ToStringHelper.ToStringWithCulture(", " + parsedActionName + "_Request request"));
+
+            this.Write(")\r\n        {\r\n            return _source." + parsedActionName + "(" + String.Join(", ", parameterValues.Split(',').Select(x => "request." + x)));
+            this.Write(");\r\n        }\r\n");
+        }
  
     }
 

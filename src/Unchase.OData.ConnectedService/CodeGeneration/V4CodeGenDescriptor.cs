@@ -106,6 +106,7 @@ namespace Unchase.OData.ConnectedService.CodeGeneration
                 text = Regex.Replace(text, "(public const bool IgnoreUnexpectedElementsAndAttributes = )true;", "$1" + this.ServiceConfiguration.IgnoreUnexpectedElementsAndAttributes.ToString().ToLower(CultureInfo.InvariantCulture) + ";");
                 text = Regex.Replace(text, "(public const bool GenerateDynamicPropertiesCollection = )true;", "$1" + this.ServiceConfiguration.GenerateDynamicPropertiesCollection.ToString().ToLower(CultureInfo.InvariantCulture) + ";");
                 text = Regex.Replace(text, "(public const string DynamicPropertiesCollectionName = )\"DynamicProperties\";", "$1\"" + $"{(!string.IsNullOrWhiteSpace(ServiceConfiguration.DynamicPropertiesCollectionName) ? ServiceConfiguration.DynamicPropertiesCollectionName : Common.Constants.DefaultDynamicPropertiesCollectionName)}" + "\";");
+                text = Regex.Replace(text, "(public const bool GenerateActionInputWrapperClasses = )false;", "$1" + this.ServiceConfiguration.GenerateActionInputWrapperClasses.ToString().ToLower(CultureInfo.InvariantCulture) + ";");
 
                 text = Regex.Replace(text, "(public const string ExcludedOperationImportsNames = )\"\";", "$1\"" + this.ServiceConfiguration.ExcludedOperationImportsNames + "\";");
 
@@ -148,7 +149,8 @@ namespace Unchase.OData.ConnectedService.CodeGeneration
                 NamespacePrefix = this.ServiceConfiguration.NamespacePrefix,
                 ExcludedOperationImportsNames = this.ServiceConfiguration?.ExcludedOperationImportsNames,
                 GenerateDynamicPropertiesCollection = this.ServiceConfiguration.GenerateDynamicPropertiesCollection,
-                DynamicPropertiesCollectionName = this.ServiceConfiguration?.DynamicPropertiesCollectionName
+                DynamicPropertiesCollectionName = this.ServiceConfiguration?.DynamicPropertiesCollectionName,
+                GenerateActionInputWrapperClasses = this.ServiceConfiguration.GenerateActionInputWrapperClasses
             };
 
             var tempFile = Path.GetTempFileName();

@@ -147,6 +147,24 @@ namespace Unchase.OData.ConnectedService.ViewModels
         }
         #endregion
 
+        #region GenerateActionInputWrapperClasses
+        private bool _generateActionInputWrapperClasses;
+        /// <summary>
+        /// Generate classes to wrap action input arguments so they can be passed as a single entity, and these classes can then be used as simple view models that can be bound to user interfaces
+        /// </summary>
+        public bool GenerateActionInputWrapperClasses
+        {
+            get => _generateActionInputWrapperClasses;
+            set
+            {
+                _generateActionInputWrapperClasses = value;
+                UserSettings.GenerateActionInputWrapperClasses = value;
+                OnPropertyChanged(nameof(GenerateActionInputWrapperClasses));
+            }
+        }
+        #endregion
+
+
         #region GeneratedFileNameEnabled
         public bool GeneratedFileNameEnabled { get; set; }
         #endregion
@@ -273,6 +291,7 @@ namespace Unchase.OData.ConnectedService.ViewModels
             this.IgnoreUnexpectedElementsAndAttributes = UserSettings.IgnoreUnexpectedElementsAndAttributes;
             this.GenerateDynamicPropertiesCollection = UserSettings.GenerateDynamicPropertiesCollection;
             this.DynamicPropertiesCollectionName = UserSettings.DynamicPropertiesCollectionName;
+            this.GenerateActionInputWrapperClasses = UserSettings.GenerateActionInputWrapperClasses;
             this.GeneratedFileNameEnabled = true;
             this.GeneratedFileNamePrefix = UserSettings.GeneratedFileNamePrefix ?? Constants.DefaultReferenceFileName;
             this.IncludeT4FileEnabled = true;

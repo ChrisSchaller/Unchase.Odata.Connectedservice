@@ -66,24 +66,23 @@
                     VerticalAlignment="Center"
                     Text="{Binding UserSettings.NamespacePrefix, Mode=TwoWay}"
                     TextWrapping="Wrap" />
-                <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
+                <StackPanel Margin="0,5,0,0" Orientation="Horizontal">
                     <CheckBox
-                    x:Name="UseDsc"
-                    
-                    HorizontalAlignment="Left"
-                    VerticalAlignment="Top"
-                    Content="Enable entity and property tracking."
-                    IsChecked="{Binding UserSettings.UseDataServiceCollection, Mode=TwoWay}" />
+                        x:Name="UseDsc"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Top"
+                        Content="Enable entity and property tracking."
+                        IsChecked="{Binding UserSettings.UseDataServiceCollection, Mode=TwoWay}" />
                     <TextBlock Margin="10,0,0,0">-</TextBlock>
                     <CheckBox
-                    x:Name="UseAsyncDsc"
-                    Margin="10,0,0,0"
-                    HorizontalAlignment="Left"
-                    VerticalAlignment="Top"
-                    Content="Implement async binding base. (c# only)"
-                    Visibility="{Binding UserSettings.UseDataServiceCollection}"
-                    IsEnabled="{Binding UserSettings.ShowAsyncDataServiceCollectionOption}"
-                    IsChecked="{Binding UserSettings.UseAsyncDataServiceCollection, Mode=TwoWay}" />
+                        x:Name="UseAsyncDsc"
+                        Margin="10,0,0,0"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Top"
+                        Content="Implement async binding base. (c# only)"
+                        IsChecked="{Binding UserSettings.UseAsyncDataServiceCollection, Mode=TwoWay}"
+                        IsEnabled="{Binding UserSettings.ShowAsyncDataServiceCollectionOption}"
+                        Visibility="{Binding UserSettings.UseDataServiceCollection}" />
                 </StackPanel>
                 <CheckBox
                     x:Name="SelectOperationImports"
@@ -177,6 +176,28 @@
                     Text="{Binding UserSettings.DynamicPropertiesCollectionName, Mode=TwoWay}"
                     TextWrapping="Wrap" />
 
+                <CheckBox
+                    x:Name="GenerateActionInputWrapperClasses"
+                    Margin="0,5"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    IsChecked="{Binding UserSettings.GenerateActionInputWrapperClasses, Mode=TwoWay}">
+                    <StackPanel>
+                        <StackPanel.ToolTip>
+                            This flag indicates whether to generate wrapper classes around the input arguments for actions so they can be passed as a single entity.
+                            This was the default behavior in legacy SOAP and WCF services client generation, but is still relevant today as it allows advanced user interface
+                            option such as binding these classes directly to the UI as simple view models.
+                        </StackPanel.ToolTip>
+                        <TextBlock Margin="0,0,40,0" TextWrapping="Wrap">Generate wrapper classes around Action input arguments</TextBlock>
+                        <TextBlock
+                            Margin="0,0,40,0"
+                            FontSize="9"
+                            TextWrapping="Wrap"><Run>
+                                this was the default behavior in legacy SOAP and WCF services client generation,
+                                this feature is most powerful when combined with &#160;
+                            </Run><Run FontStyle="Italic">Enable entity and property tracking.</Run></TextBlock>
+                    </StackPanel>
+                </CheckBox>
                 <CheckBox
                     x:Name="IncludeT4File"
                     Width="500"

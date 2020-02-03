@@ -1375,6 +1375,7 @@ public abstract class ODataClientTemplate : TemplateBase
     internal abstract void WriteBoundFunctionInEntityTypeReturnSingleResult(bool hideBaseMethod, string functionName, string originalFunctionName, string returnTypeName, string returnTypeNameWithSingleSuffix, string parameters, string fullNamespace, string parameterValues, bool isComposable, bool isReturnEntity, bool useEntityReference);
     internal abstract void WriteActionImport(string actionName, string originalActionName, string returnTypeName, string parameters, string parameterValues);
     internal abstract void WriteBoundActionInEntityType(bool hideBaseMethod, string actionName, string originalActionName, string returnTypeName, string parameters, string fullNamespace, string parameterValues);
+    //internal abstract void WriteBoundActionWithInputWrapperInEntityType(bool hideBaseMethod, string actionName, string originalActionName, string returnTypeName, string parameters, string fullNamespace, string parameterValues);
     internal abstract void WriteConstructorForSingleType(string singleTypeName, string baseTypeName);
     internal abstract void WriteExtensionMethodsStart();
     internal abstract void WriteExtensionMethodsEnd();
@@ -1383,6 +1384,8 @@ public abstract class ODataClientTemplate : TemplateBase
     internal abstract void WriteBoundFunctionReturnSingleResultAsExtension(string functionName, string originalFunctionName, string boundTypeName, string returnTypeName, string returnTypeNameWithSingleSuffix, string parameters, string fullNamespace, string parameterValues, bool isComposable, bool isReturnEntity, bool useEntityReference);
     internal abstract void WriteBoundFunctionReturnCollectionResultAsExtension(string functionName, string originalFunctionName, string boundTypeName, string returnTypeName, string parameters, string fullNamespace, string parameterValues, bool isComposable, bool useEntityReference);
     internal abstract void WriteBoundActionAsExtension(string actionName, string originalActionName, string boundSourceType, string returnTypeName, string parameters, string fullNamespace, string parameterValues);
+    internal abstract void WriteBoundActionWithInputWrapperAsExtension(string actionName, string originalActionName, string boundSourceType, string returnTypeName, string inputWrapperTypeName, string[] parameterNames, string fullNamespace);
+
     #endregion Language specific write methods.
 
     internal HashSet<EdmPrimitiveTypeKind> ClrReferenceTypes { get { 
@@ -1431,7 +1434,9 @@ public abstract class ODataClientTemplate : TemplateBase
             this.WriteEntityContainer(container, fullNamespace);
         }
 
+
         Dictionary<IEdmStructuredType, List<IEdmOperation>> boundOperationsMap = new Dictionary<IEdmStructuredType, List<IEdmOperation>>();
+        Dictionary<IEdmStructuredType, List<IEdmOperation>> boundCollectionOperationsMap = new Dictionary<IEdmStructuredType, List<IEdmOperation>>();
         foreach (IEdmOperation operation in schemaElements.OfType<IEdmOperation>())
         {
             if (operation.IsBound)
@@ -1447,8 +1452,28 @@ public abstract class ODataClientTemplate : TemplateBase
                     operationList.Add(operation);
                     boundOperationsMap[edmStructuredType] = operationList;
                 }
+                else if(edmType is IEdmCollectionType collectionType)
+                {
+                        if (collectionType.ElementType is IEdmTypeReference referenceType)
+                        {
+                            if (referenceType.AsStructured().StructuredDefinition() is IEdmStructuredType boundType)
+                            {
+                                if (!boundCollectionOperationsMap.TryGetValue(boundType, out var operationList))
+                                {
+                                    operationList = new List<IEdmOperation>();
+                                }
+
+                                operationList.Add(operation);
+                                boundCollectionOperationsMap[boundType] = operationList;
+                            }
+                        }
+                }
             }
+
+            // TODO: do we need to support un-bound operations as well?
         }
+
+        // get all operations that need wrapper classes implemented
 
         Dictionary<IEdmStructuredType, List<IEdmStructuredType>> structuredBaseTypeMap = new Dictionary<IEdmStructuredType, List<IEdmStructuredType>>();
         foreach(IEdmSchemaType type in schemaElements.OfType<IEdmSchemaType>())
@@ -1466,7 +1491,7 @@ public abstract class ODataClientTemplate : TemplateBase
                 else
                 {
                     if (type is IEdmEntityType entityType)
-                        this.WriteEntityType(entityType, boundOperationsMap);
+                        this.WriteEntityType(entityType, boundOperationsMap, boundCollectionOperationsMap);
                 }
 
                 IEdmStructuredType structuredType = type as IEdmStructuredType;
@@ -1655,14 +1680,6 @@ public abstract class ODataClientTemplate : TemplateBase
                         returnTypeName = this.DataServiceActionQueryTypeName;
                     }
 
-                    string fixedActionName = GetFixedName(actionName);
-                    string ac = $"{fixedActionName}({sourceTypeName},{parameterTypes})";
-                    if (!boundOperations.Contains(ac))
-                    {
-                        boundOperations.Add(ac);
-                        this.WriteBoundActionAsExtension(fixedActionName, action.Name, sourceTypeName, returnTypeName, parameterString, action.Namespace, parameterValues);
-                    }
-
                     IEdmStructuredType structuredType = null;
                     IEdmPrimitiveType primitiveType = null;
                     if (edmTypeReference.IsCollection())
@@ -1689,8 +1706,28 @@ public abstract class ODataClientTemplate : TemplateBase
                         }
                     }
 
+                    string fixedActionName = GetFixedName(actionName);
+
+                    bool generateInputWrapperClass = this.context.GenerateActionInputWrapperClasses && action.Parameters.Count() > 2; // skip the type parameter
+                    string[] parameterNames = action.Parameters.Skip(1).Select(x => x.Name).ToArray();
+                    string inputWrapperTypeName = (structuredType as IEdmType ?? primitiveType as IEdmType).FullTypeName() + "." + actionName + WrappedActionClassSuffix; 
+
+                    // remove later
+                    if(generateInputWrapperClass)
+                                System.Diagnostics.Debugger.Launch();
+
+                    string ac = $"{fixedActionName}({sourceTypeName},{parameterTypes})";
+                    if (!boundOperations.Contains(ac))
+                    {
+                        boundOperations.Add(ac);
+                        this.WriteBoundActionAsExtension(fixedActionName, action.Name, sourceTypeName, returnTypeName, parameterString, action.Namespace, parameterValues);
+                        if(generateInputWrapperClass)
+                            this.WriteBoundActionWithInputWrapperAsExtension(fixedActionName, action.Name, sourceTypeName, returnTypeName, inputWrapperTypeName, parameterNames, action.Namespace);
+                    }
+
                     if (primitiveType != null)
                     {
+System.Diagnostics.Debugger.Launch();
                         IEdmTypeReference derivedTypeReference = new EdmPrimitiveTypeReference(primitiveType, true);
                         List<IEdmTypeReference> currentParameters = action.Parameters.Select(p => p.Type).ToList();
                         currentParameters[0] = derivedTypeReference;
@@ -1701,9 +1738,13 @@ public abstract class ODataClientTemplate : TemplateBase
                         {
                             boundOperations.Add(currentAc);
                             this.WriteBoundActionAsExtension(fixedActionName, action.Name, sourceTypeName, returnTypeName, parameterString, action.Namespace, parameterValues);
+                            if (generateInputWrapperClass)
+                                this.WriteBoundActionWithInputWrapperAsExtension(fixedActionName, action.Name, sourceTypeName, returnTypeName, inputWrapperTypeName, parameterNames, action.Namespace);
                         }
 
                         this.WriteBoundActionAsExtension(fixedActionName, action.Name, sourceTypeName, returnTypeName, parameterString, action.Namespace, parameterValues);
+                        if (generateInputWrapperClass)
+                            this.WriteBoundActionWithInputWrapperAsExtension(fixedActionName, action.Name, sourceTypeName, returnTypeName, inputWrapperTypeName, parameterNames, action.Namespace);
                     }
 
                     if (structuredType != null)
@@ -1722,6 +1763,8 @@ public abstract class ODataClientTemplate : TemplateBase
                                 {
                                     boundOperations.Add(currentAc);
                                     this.WriteBoundActionAsExtension(fixedActionName, action.Name, sourceTypeName, returnTypeName, parameterString, action.Namespace, parameterValues);
+                                    if(generateInputWrapperClass)
+                                        this.WriteBoundActionWithInputWrapperAsExtension(fixedActionName, action.Name, sourceTypeName, returnTypeName, inputWrapperTypeName, parameterNames, action.Namespace);
                                 }
                             }
                         }
@@ -1979,7 +2022,7 @@ public abstract class ODataClientTemplate : TemplateBase
         }
     }
 
-    internal void WriteEntityType(IEdmEntityType entityType, Dictionary<IEdmStructuredType, List<IEdmOperation>> boundOperationsMap)
+    internal void WriteEntityType(IEdmEntityType entityType, Dictionary<IEdmStructuredType, List<IEdmOperation>> boundOperationsMap, Dictionary<IEdmStructuredType, List<IEdmOperation>> boundCollectionOperationsMap)
     {
         string entityTypeName = ((IEdmSchemaElement)entityType).Name;
         entityTypeName = this.context.EnableNamingAlias ? Customization.CustomizeNaming(entityTypeName) : entityTypeName;
@@ -2040,6 +2083,11 @@ public abstract class ODataClientTemplate : TemplateBase
         }
 
         this.WriteBoundOperations(entityType, boundOperationsMap);
+
+        if (this.context.GenerateActionInputWrapperClasses)
+        {
+            this.WriteBoundOperationInputWrapperClasses(entityType, boundOperationsMap, boundCollectionOperationsMap);
+        }
 
         try
         {
@@ -2102,8 +2150,8 @@ public abstract class ODataClientTemplate : TemplateBase
                 if (action.ReturnType != null)
                 {
                     returnTypeName = GetSourceOrReturnTypeName(action.ReturnType);
-                    returnTypeName = string.Format(action.ReturnType.IsCollection() 
-                        ? this.DataServiceActionQueryOfTStructureTemplate 
+                    returnTypeName = string.Format(action.ReturnType.IsCollection()
+                        ? this.DataServiceActionQueryOfTStructureTemplate
                         : this.DataServiceActionQuerySingleOfTStructureTemplate, returnTypeName);
                 }
                 else
@@ -2119,9 +2167,56 @@ public abstract class ODataClientTemplate : TemplateBase
 
                 this.WriteBoundActionInEntityType(hideBaseMethod, GetFixedName(actionName), action.Name, returnTypeName, parameterString, action.Namespace, parameterValues);
             }
+
         }
     }
-    
+    internal void WriteBoundOperationInputWrapperClasses(IEdmStructuredType structuredType, Dictionary<IEdmStructuredType, List<IEdmOperation>> boundOperationsMap, Dictionary<IEdmStructuredType, List<IEdmOperation>> boundCollectionOperationsMap)
+    {
+        List<IEdmOperation> operations = new List<IEdmOperation>();
+
+        if (boundOperationsMap.TryGetValue(structuredType, out var itemOperations))
+        {
+            operations.AddRange(itemOperations);
+        }
+        if (boundCollectionOperationsMap.TryGetValue(structuredType, out var collectionOperations))
+        {
+            operations.AddRange(collectionOperations);
+        }
+
+        if (operations.Any())
+        {
+            this.PushIndent("    ");
+
+            foreach (var operation in operations)
+            {
+                this.GetParameterStrings(operation.IsBound, operation.IsAction(), operation.Parameters.ToArray(), out var parameterString, out var parameterTypes, out var parameterExpressionString, out var parameterValues, out var useEntityReference);
+                var propertyDeclarations = parameterString.Split(',');
+                string[] propertyNames = null;
+                string[] propertyTypes = null;
+                if (this.context.TargetLanguage == LanguageOption.CSharp)
+                {
+                    propertyNames = propertyDeclarations.Where(x => x.Contains(' ')).Select(x => x.Substring(x.LastIndexOf(' ') + 1)).ToArray();
+                    propertyTypes = propertyDeclarations.Where(x => x.Contains(' ')).Select(x => x.Substring(0, x.LastIndexOf(' '))).ToArray();
+                }
+                else
+                {
+                    propertyTypes = propertyDeclarations.Where(x => x.Contains(' ')).Select(x => x.Substring(x.LastIndexOf(' ') + 1)).ToArray();
+                    propertyNames = propertyDeclarations.Where(x => x.Contains(' ')).Select(x => x.Substring(0, x.LastIndexOf(' '))).ToArray();
+                    Debugger.Launch();
+                }
+
+                // GetParameterStrings will strip the type reference
+                if (propertyDeclarations.Count() > 1)
+                {
+                    WriteBoundOperationInputWrapperClass(operation.Name, propertyNames, propertyTypes);
+                }
+            }
+
+            this.PopIndent();
+
+        }
+    }
+
     internal bool CheckMethodsInBaseClass(IEdmStructuredType structuredType, IEdmOperation operation, Dictionary<IEdmStructuredType, List<IEdmOperation>> boundOperationsMap)
     {
         if (structuredType != null)
@@ -2584,6 +2679,57 @@ public abstract class ODataClientTemplate : TemplateBase
 
         return elementTypeName;
     }
+
+    /// <summary>
+    /// Write a class to the input parameters for a bound operation so that only a single argument object needs to be passed around
+    /// This is designed to write as a nested class of the type that the operation is bound to to reduce possibility of name and structure clashes.
+    /// </summary>
+    /// <remarks>If the API has multiple operations with the same argument signature and you wish to re-use this as a single type reference then that should be 
+    /// Implemented as a fixed type at the API level, don't try to be too smart in the client-side generation</remarks>
+    /// <param name="operationName">The Name of the operation to generate and argument wrapper class</param>
+    /// <param name="parameterNames">Array of the names of the input parameters</param>
+    /// <param name="parameterTypes">Array of the types for corresponding to each of the input parameters</param>
+    internal void WriteBoundOperationInputWrapperClass(string operationName, string[] parameterNames, string[] parameterTypes)
+    {
+        // TODO: implement comments for this generated structure... 
+        //this.WriteSummaryCommentForStructuredType(requestClassName);
+
+        string baseTypeName = String.Empty;
+        if (this.context.UseDataServiceCollection)
+        {
+            if (this.context.TargetLanguage == LanguageOption.CSharp)
+            {
+                baseTypeName += string.IsNullOrEmpty(baseTypeName) ? this.ClassInheritMarker : ", ";
+            }
+
+            baseTypeName += this.NotifyPropertyChangedModifier;
+        }
+
+        this.WriteClassStartForStructuredType(String.Empty, operationName + WrappedActionClassSuffix, operationName, baseTypeName);
+
+        // Private name should not conflict with field name
+        UniqueIdentifierService uniqueIdentifierService = new UniqueIdentifierService(parameterNames, this.context.TargetLanguage == LanguageOption.CSharp);
+
+        for (int i = 0; i < parameterNames.Length; i++)
+        {
+            var propertyName = parameterNames[i];
+            var propertyType = parameterTypes[i];
+            string privatePropertyName = uniqueIdentifierService.GetUniqueIdentifier("_" + propertyName);
+
+            this.WritePropertyForStructuredType(
+                propertyType,
+                propertyName,
+                propertyName,
+                GetFixedName(propertyName),
+                privatePropertyName,
+                this.context.TargetLanguage == LanguageOption.CSharp ? "default" : "Nothing",
+                context.UseDataServiceCollection);
+        }
+
+        WriteINotifyPropertyChangedImplementation();
+        this.WriteClassEndForStructuredType();
+    }
+
 }
 
 /// <summary>
@@ -5509,120 +5655,51 @@ internal static class Utils
                 this.Write(this.ToStringHelper.ToStringWithCulture(string.IsNullOrEmpty(parameterValues) ? string.Empty : ", " + parameterValues));
 
                 this.Write(");\r\n        }\r\n");
-
-                // Write out a overload of the action that accepts a single object input parameter if input wrapper should be generated.
-                // But only if there is more than 1 single parameter
-                if (this.context.GenerateActionInputWrapperClasses && !string.IsNullOrEmpty(parameters) && parameters.Split(',').Length > 1)
-                {
-                    System.Diagnostics.Debugger.Launch();
-                    this.Write("        /// <summary>\r\n        /// There are no comments for ");
-
-                    this.Write(parsedActionName);
-
-                    this.Write(" in the schema.\r\n        /// </summary>\r\n");
-
-
-                    if (this.context.EnableNamingAlias)
-                    {
-
-                        this.Write("        [global::Microsoft.OData.Client.OriginalNameAttribute(\"");
-
-                        this.Write(this.ToStringHelper.ToStringWithCulture(originalActionName));
-
-                        this.Write("\")]\r\n");
-
-
-                    }
-
-                    this.Write("        public static ");
-
-                    this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
-
-                    this.Write(" ");
-
-                    this.Write(parsedActionName);
-
-                    this.Write("(this ");
-
-                    this.Write(this.ToStringHelper.ToStringWithCulture(boundSourceType));
-
-                    this.Write(" _source");
-
-                    string requestClassName = boundSourceType;
-                    while(requestClassName.Contains("<"))
-                    {
-                        requestClassName = requestClassName.Substring(0, requestClassName.IndexOf('>'));
-                        // find the last '<' that is the start of our class name
-                        requestClassName = requestClassName.Substring(requestClassName.LastIndexOf('<') + 1);
-                    }
-                    // strip the global identifier
-                    if (requestClassName.Contains("::"))
-                        requestClassName = requestClassName.Substring(requestClassName.IndexOf("::") + 2);
-
-                    requestClassName = $"{requestClassName.Replace(".","_")}_{parsedActionName}{WrappedActionClassSuffix}";
-
-                    var propertyDeclarations = parameters.Split(',');
-                    var propertyNames = propertyDeclarations.Select(x => x.Substring(x.LastIndexOf(' ') + 1)).ToArray();
-                    var propertyTypes = propertyDeclarations.Select(x => x.Substring(0, x.LastIndexOf(' '))).ToArray();
-
-
-                    this.Write(this.ToStringHelper.ToStringWithCulture(", " + requestClassName + " request"));
-
-                    this.Write(")\r\n        {\r\n            return _source." + parsedActionName + "(" + String.Join(", ", propertyNames.Select(x => "request." + x)));
-                    this.Write(");\r\n        }\r\n");
-
-                    // TODO: move this to inside the Class definition of the type that is being extended...
-                    // Just make it happen :)
-                    // for now, because we have nowhere else to do it, just generate the class right here
-                    if (context.GenerateActionInputWrapperClasses)
-                    {
-                        // if this type has bound actions that accept parameters, then we need to write a type definition as a request object for each action.
-                        // NOTE: we write these as nested classes to reduce the possibility of name and structure clashes.
-                        // If your API design has multiple actions with the same signature, you should implement a structured type at the API level, don't try to be too smart on the client generation.
-                        //this.WriteSummaryCommentForStructuredType(requestClassName);
-
-                        string baseTypeName = String.Empty;
-                        if (this.context.UseDataServiceCollection)
-                        {
-                            if (this.context.TargetLanguage == LanguageOption.CSharp)
-                            {
-                                baseTypeName += string.IsNullOrEmpty(baseTypeName) ? this.ClassInheritMarker : ", ";
-                            }
-
-                            baseTypeName += this.NotifyPropertyChangedModifier;
-                        }
-
-                        this.WriteClassStartForStructuredType(String.Empty, requestClassName, requestClassName, baseTypeName);
-
-
-                        
-                        // Private name should not confict with field name
-                        UniqueIdentifierService uniqueIdentifierService = new UniqueIdentifierService(propertyNames, this.context.TargetLanguage == LanguageOption.CSharp);
-
-                        for (int i = 0; i < propertyNames.Length; i++)
-                        {
-                            var propertyName = propertyNames[i];
-                            var propertyType = propertyTypes[i];
-                            string privatePropertyName = uniqueIdentifierService.GetUniqueIdentifier("_" + propertyName);
-
-                            this.WritePropertyForStructuredType(
-                                propertyType,
-                                propertyName,
-                                propertyName,
-                                GetFixedName(propertyName),
-                                privatePropertyName,
-                                "default",
-                                context.UseDataServiceCollection);
-                        }
-
-                        WriteINotifyPropertyChangedImplementation();
-                        this.WriteClassEndForStructuredType();
-                    }
-                }
-
             }
 
-        
+            internal override void WriteBoundActionWithInputWrapperAsExtension(string actionName, string originalActionName, string boundSourceType, string returnTypeName, string inputWrapperTypeName, string[] parameterNames, string fullNamespace)
+            {
+                string parsedActionName = this.ToStringHelper.ToStringWithCulture(actionName);
+
+                this.Write("        /// <summary>\r\n        /// There are no comments for ");
+
+                this.Write(parsedActionName);
+
+                this.Write(" in the schema.\r\n        /// </summary>\r\n");
+
+
+                if (this.context.EnableNamingAlias)
+                {
+
+                    this.Write("        [global::Microsoft.OData.Client.OriginalNameAttribute(\"");
+
+                    this.Write(this.ToStringHelper.ToStringWithCulture(originalActionName));
+
+                    this.Write("\")]\r\n");
+
+
+                }
+
+                this.Write("        public static ");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
+
+                this.Write(" ");
+
+                this.Write(parsedActionName);
+
+                this.Write("(this ");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(boundSourceType));
+
+                this.Write(" _source");
+
+                this.Write(this.ToStringHelper.ToStringWithCulture(", " + inputWrapperTypeName + " request"));
+
+                this.Write(")\r\n        {\r\n            return _source." + parsedActionName + "(" + String.Join(", ", parameterNames.Select(x => "request." + x)));
+                this.Write(");\r\n        }\r\n");
+            }
+
 
     internal override void WriteNamespaceEnd()
     {
@@ -7619,6 +7696,50 @@ this.Write(this.ToStringHelper.ToStringWithCulture(originalActionName));
 this.Write("\")");
 
 this.Write(this.ToStringHelper.ToStringWithCulture(string.IsNullOrEmpty(parameterValues) ? string.Empty : ", " + parameterValues));
+
+this.Write(")\r\n        End Function\r\n");
+
+
+    }
+    internal override void WriteBoundActionWithInputWrapperAsExtension(string actionName, string originalActionName, string boundSourceType, string returnTypeName, string inputWrapperTypeName, string[] parameterNames, string fullNamespace)
+    {
+string parsedActionName = this.ToStringHelper.ToStringWithCulture(actionName);
+
+this.Write("        \'\'\' <summary>\r\n        \'\'\' There are no comments for ");
+
+this.Write(parsedActionName);
+
+this.Write(" in the schema.\r\n        \'\'\' </summary>\r\n        <Global.System.Runtime.CompilerS" +
+        "ervices.Extension()>\r\n");
+
+
+        if (this.context.EnableNamingAlias)
+        {
+
+this.Write("        <Global.Microsoft.OData.Client.OriginalNameAttribute(\"");
+
+this.Write(this.ToStringHelper.ToStringWithCulture(originalActionName));
+
+this.Write("\")>  _\r\n");
+
+
+        }
+
+this.Write("        Public Function ");
+
+this.Write(parsedActionName);
+
+this.Write("(ByVal _source As ");
+
+this.Write(this.ToStringHelper.ToStringWithCulture(boundSourceType));
+
+this.Write(this.ToStringHelper.ToStringWithCulture(", request As " + inputWrapperTypeName));
+
+this.Write(") As ");
+
+this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
+
+this.Write("\r\n            Return _source." + parsedActionName + "(" + String.Join(", ", parameterNames.Select(x => "request." + x)) + ")");
 
 this.Write(")\r\n        End Function\r\n");
 

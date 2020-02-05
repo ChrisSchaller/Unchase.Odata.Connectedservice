@@ -1359,7 +1359,7 @@ public abstract class ODataClientTemplate : TemplateBase
     internal abstract void WriteParameterNullCheckForStaticCreateMethod(string parameterName);
     internal abstract void WritePropertyValueAssignmentForStaticCreateMethod(string instanceName, string propertyName, string parameterName);
     internal abstract void WriteMethodEndForStaticCreateMethod(string instanceName);
-    internal abstract void WritePropertyForStructuredType(string propertyType, string originalPropertyName, string propertyName, string fixedPropertyName, string privatePropertyName, string propertyInitializationValue, bool writeOnPropertyChanged);
+    internal abstract void WritePropertyForStructuredType(string propertyType, string originalPropertyName, string propertyName, string fixedPropertyName, string privatePropertyName, string propertyInitializationValue, bool writeOnPropertyChanged, bool writeRequiredPropertyAttribute, int? maxPropertyDataLength);
     internal abstract void WriteINotifyPropertyChangedImplementation();
     internal abstract void WriteClassEndForStructuredType();
     internal abstract void WriteNamespaceEnd();
@@ -1415,6 +1415,7 @@ public abstract class ODataClientTemplate : TemplateBase
     /// <returns>The generated code for the OData client.</returns>
     public override string TransformText()
     {
+        this.LaunchDebugger();
         this.WriteFileHeader();
         this.WriteNamespaces();
         return this.GenerationEnvironment.ToString();
@@ -1594,8 +1595,8 @@ public abstract class ODataClientTemplate : TemplateBase
                         }
                     }
 
-                    bool generateInputWrapperClass = this.context.GenerateActionInputWrapperClasses && function.Parameters.Count() > 2; // skip the type parameter, single parameters don't gain anything by using an object wrapper
-                    string[] parameterNames = function.Parameters.Skip(1).Select(x => x.Name).ToArray();
+                    string[] parameterNames = function.Parameters.Skip(function.IsBound ? 1 : 0).Select(x => x.Name).ToArray(); // skip the binding/type reference parameter
+                    bool generateInputWrapperClass = this.context.GenerateActionInputWrapperClasses && parameterNames.Length > 1; // single parameters don't gain anything by using an object wrapper
                     string inputWrapperTypeName = (structuredType as IEdmType ?? primitiveType as IEdmType).FullTypeName() + "." + functionName + WrappedActionClassSuffix;
 
                     if (!boundOperations.Contains(func))
@@ -1642,7 +1643,7 @@ public abstract class ODataClientTemplate : TemplateBase
                             }
                         }
                     }
-                            System.Diagnostics.Debugger.Launch();
+
                     if (structuredType != null)
                     {
                         if (structuredBaseTypeMap.TryGetValue(structuredType, out var derivedTypes))
@@ -1728,8 +1729,8 @@ public abstract class ODataClientTemplate : TemplateBase
 
                     string fixedActionName = GetFixedName(actionName);
 
-                    bool generateInputWrapperClass = this.context.GenerateActionInputWrapperClasses && action.Parameters.Count() > 2; // skip the type parameter
-                    string[] parameterNames = action.Parameters.Skip(1).Select(x => x.Name).ToArray();
+                    string[] parameterNames = action.Parameters.Skip(action.IsBound ? 1 : 0).Select(x => x.Name).ToArray(); // skip the binding/type reference parameter
+                    bool generateInputWrapperClass = this.context.GenerateActionInputWrapperClasses && parameterNames.Length > 1; // single parameters don't gain anything by using an object wrapper
                     string inputWrapperTypeName = (structuredType as IEdmType ?? primitiveType as IEdmType).FullTypeName() + "." + actionName + WrappedActionClassSuffix; 
 
                     string ac = $"{fixedActionName}({sourceTypeName},{parameterTypes})";
@@ -2148,8 +2149,8 @@ public abstract class ODataClientTemplate : TemplateBase
                     functionName = Customization.CustomizeNaming(functionName);
                 }
 
-                bool generateInputWrapperClass = this.context.GenerateActionInputWrapperClasses && function.Parameters.Count() > 1; // single parameters don't gain anything by using an object wrapper
-                string[] parameterNames = function.Parameters.Select(x => x.Name).ToArray();
+                string[] parameterNames = function.Parameters.Skip(function.IsBound ? 1 : 0).Select(x => x.Name).ToArray(); // skip the binding/type reference parameter
+                bool generateInputWrapperClass = this.context.GenerateActionInputWrapperClasses && parameterNames.Length > 1; // single parameters don't gain anything by using an object wrapper
                 string inputWrapperTypeName = structuredType.FullTypeName() + "." + GetFixedName(functionName) + WrappedActionClassSuffix;
 
                 if (function.ReturnType.IsCollection())
@@ -2191,10 +2192,10 @@ public abstract class ODataClientTemplate : TemplateBase
 
                 this.WriteBoundActionInEntityType(hideBaseMethod, GetFixedName(actionName), action.Name, returnTypeName, parameterString, action.Namespace, parameterValues);
 
-                bool generateInputWrapperClass = this.context.GenerateActionInputWrapperClasses && action.Parameters.Count() > 1; // single parameters don't gain anything by using an object wrapper
+                string[] parameterNames = action.Parameters.Skip(action.IsBound ? 1 : 0).Select(x => x.Name).ToArray(); // skip the binding/type reference parameter
+                bool generateInputWrapperClass = this.context.GenerateActionInputWrapperClasses && parameterNames.Length > 1; // single parameters don't gain anything by using an object wrapper
                 if (generateInputWrapperClass)
                 {
-                    string[] parameterNames = action.Parameters.Select(x => x.Name).ToArray();
                     string inputWrapperTypeName = structuredType.FullTypeName() + "." + GetFixedName(actionName) + WrappedActionClassSuffix;
 
                     this.WriteBoundActionWithInputWrapperInEntityType(hideBaseMethod, GetFixedName(actionName), action.Name, returnTypeName, inputWrapperTypeName, parameterNames, action.Namespace);
@@ -2222,26 +2223,10 @@ public abstract class ODataClientTemplate : TemplateBase
 
             foreach (var operation in operations)
             {
-                this.GetParameterStrings(operation.IsBound, operation.IsAction(), operation.Parameters.ToArray(), out var parameterString, out var parameterTypes, out var parameterExpressionString, out var parameterValues, out var useEntityReference);
-                var propertyDeclarations = parameterString.Split(',');
-                string[] propertyNames = null;
-                string[] propertyTypes = null;
-                if (this.context.TargetLanguage == LanguageOption.CSharp)
+                // only generate input wrapper classes for operations that have more than 1 single parameter.
+                if (operation.Parameters.Skip(operation.IsBound ? 1 : 0).Count() > 1) 
                 {
-                    propertyNames = propertyDeclarations.Where(x => x.Contains(' ')).Select(x => x.Substring(x.LastIndexOf(' ') + 1)).ToArray();
-                    propertyTypes = propertyDeclarations.Where(x => x.Contains(' ')).Select(x => x.Substring(0, x.LastIndexOf(' '))).ToArray();
-                }
-                else
-                {
-                    propertyTypes = propertyDeclarations.Where(x => x.Contains(' ')).Select(x => x.Substring(x.LastIndexOf(' ') + 1)).ToArray();
-                    propertyNames = propertyDeclarations.Where(x => x.Contains(' ')).Select(x => x.Substring(0, x.LastIndexOf(' '))).ToArray();
-                    Debugger.Launch();
-                }
-
-                // GetParameterStrings will strip the type reference
-                if (propertyDeclarations.Count() > 1)
-                {
-                    WriteBoundOperationInputWrapperClass(operation.Name, propertyNames, propertyTypes);
+                    WriteBoundOperationInputWrapperClass(operation);
                 }
             }
 
@@ -2621,6 +2606,15 @@ public abstract class ODataClientTemplate : TemplateBase
             string propertyName = IdentifierMappings.ContainsKey(property.Name) ?
                 IdentifierMappings[property.Name] : (this.context.EnableNamingAlias ? Customization.CustomizeNaming(property.Name) : property.Name);
 
+            // Lookup MaxLength for string fields
+            int? maxLength = null;
+            if (property.Type.TypeKind() == EdmTypeKind.Primitive)
+            {
+                var csdlTypeElement = property.Type.GetType().GetProperty("Element").GetValue(property.Type);
+                bool isUnbounded = (bool)csdlTypeElement.GetType().GetProperty("IsUnbounded")?.GetValue(csdlTypeElement);
+                maxLength = isUnbounded ? -1 : (int?)csdlTypeElement.GetType().GetProperty("MaxLength")?.GetValue(csdlTypeElement);
+            }
+
             return new
                 {
                     PropertyType = Utils.GetClrTypeName(property.Type, useDataServiceCollection, this, this.context),
@@ -2628,7 +2622,9 @@ public abstract class ODataClientTemplate : TemplateBase
                     PropertyName = propertyName,
                     FixedPropertyName = GetFixedName(propertyName),
                     PrivatePropertyName = "_" + propertyName,
-                    PropertyInitializationValue = Utils.GetPropertyInitializationValue(property, useDataServiceCollection, this, this.context)
+                    PropertyInitializationValue = Utils.GetPropertyInitializationValue(property, useDataServiceCollection, this, this.context),
+                    Required = false,
+                    MaxLength = maxLength
                 };
         }).ToList();
 
@@ -2641,11 +2637,13 @@ public abstract class ODataClientTemplate : TemplateBase
                 PropertyName = this.context.DynamicPropertiesCollectionName,
                 FixedPropertyName = GetFixedName(this.context.DynamicPropertiesCollectionName),
                 PrivatePropertyName = "_" + Utils.CamelCase(this.context.DynamicPropertiesCollectionName),
-                PropertyInitializationValue = string.Format(this.DictionaryConstructor, this.StringTypeName, this.ObjectTypeName)
+                PropertyInitializationValue = string.Format(this.DictionaryConstructor, this.StringTypeName, this.ObjectTypeName),
+                Required = false,
+                MaxLength = (int?)null
             });
         }
 
-        // Private name should not confict with field name
+        // Private name should not conflict with field name
         UniqueIdentifierService uniqueIdentifierService = new UniqueIdentifierService(propertyInfos.Select(_ => _.FixedPropertyName),
             this.context.TargetLanguage == LanguageOption.CSharp);
 
@@ -2660,7 +2658,9 @@ public abstract class ODataClientTemplate : TemplateBase
                 propertyInfo.FixedPropertyName,
                 privatePropertyName,
                 propertyInfo.PropertyInitializationValue,
-                useDataServiceCollection);
+                useDataServiceCollection,
+                propertyInfo.Required,
+                propertyInfo.MaxLength);
         }
     }
 
@@ -2719,11 +2719,25 @@ public abstract class ODataClientTemplate : TemplateBase
     /// </summary>
     /// <remarks>If the API has multiple operations with the same argument signature and you wish to re-use this as a single type reference then that should be 
     /// Implemented as a fixed type at the API level, don't try to be too smart in the client-side generation</remarks>
-    /// <param name="operationName">The Name of the operation to generate and argument wrapper class</param>
-    /// <param name="parameterNames">Array of the names of the input parameters</param>
-    /// <param name="parameterTypes">Array of the types for corresponding to each of the input parameters</param>
-    internal void WriteBoundOperationInputWrapperClass(string operationName, string[] parameterNames, string[] parameterTypes)
+    /// <param name="operation">The operation to generate an argument wrapper class</param>
+    internal void WriteBoundOperationInputWrapperClass(IEdmOperation operation)
     {
+        // use GetParameterString as it formats types and names consistently
+        this.GetParameterStrings(operation.IsBound, operation.IsAction(), operation.Parameters.ToArray(), out var parameterString, out var parameterTypes, out var parameterExpressionString, out var parameterValues, out var useEntityReference);
+        var propertyDeclarations = parameterString.Split(',');
+        string[] propertyNames = null;
+        string[] propertyTypes = null;
+        if (this.context.TargetLanguage == LanguageOption.CSharp)
+        {
+            propertyNames = propertyDeclarations.Where(x => x.Contains(' ')).Select(x => x.Substring(x.LastIndexOf(' ') + 1)).ToArray();
+            propertyTypes = propertyDeclarations.Where(x => x.Contains(' ')).Select(x => x.Substring(0, x.LastIndexOf(' '))).ToArray();
+        }
+        else
+        {
+            propertyTypes = propertyDeclarations.Where(x => x.Contains(' ')).Select(x => x.Substring(x.LastIndexOf(' ') + 1)).ToArray();
+            propertyNames = propertyDeclarations.Where(x => x.Contains(' ')).Select(x => x.Substring(0, x.LastIndexOf(' '))).ToArray();
+        }
+
         // TODO: implement comments for this generated structure... 
         //this.WriteSummaryCommentForStructuredType(requestClassName);
 
@@ -2738,16 +2752,22 @@ public abstract class ODataClientTemplate : TemplateBase
             baseTypeName += this.NotifyPropertyChangedModifier;
         }
 
-        this.WriteClassStartForStructuredType(String.Empty, operationName + WrappedActionClassSuffix, operationName, baseTypeName);
+        this.WriteClassStartForStructuredType(String.Empty, operation.Name + WrappedActionClassSuffix, operation.Name, baseTypeName);
 
         // Private name should not conflict with field name
-        UniqueIdentifierService uniqueIdentifierService = new UniqueIdentifierService(parameterNames, this.context.TargetLanguage == LanguageOption.CSharp);
-
-        for (int i = 0; i < parameterNames.Length; i++)
+        UniqueIdentifierService uniqueIdentifierService = new UniqueIdentifierService(propertyNames, this.context.TargetLanguage == LanguageOption.CSharp);
+        string[] declarations = parameterExpressionString.Trim().Split(',');
+        for (int i = 0; i < propertyNames.Length; i++)
         {
-            var propertyName = parameterNames[i];
-            var propertyType = parameterTypes[i];
+            var propertyName = propertyNames[i];
+            var propertyType = propertyTypes[i];
             string privatePropertyName = uniqueIdentifierService.GetUniqueIdentifier("_" + propertyName);
+            var required = !declarations[i].ToLower().Contains("optional");
+
+            // we can get additional validation information from the CSL definition
+            var parameter = operation.Parameters.First(x => x.Name == propertyName);
+            var csdlElement = parameter.GetType().GetProperty("Element").GetValue(parameter); // expecting internal Microsoft.OData.Edm.Csdl.CsdlSemantics.CsdlSemanticsOperationParameter
+            bool isOptional = (bool)csdlElement.GetType().GetProperty("IsOptional").GetValue(csdlElement);
 
             this.WritePropertyForStructuredType(
                 propertyType,
@@ -2756,7 +2776,10 @@ public abstract class ODataClientTemplate : TemplateBase
                 GetFixedName(propertyName),
                 privatePropertyName,
                 this.context.TargetLanguage == LanguageOption.CSharp ? "default" : "Nothing",
-                context.UseDataServiceCollection);
+                this.context.UseDataServiceCollection,
+                !isOptional,
+                null
+                );
         }
 
         WriteINotifyPropertyChangedImplementation();
@@ -2843,7 +2866,31 @@ public abstract class TemplateBase
     /// </summary>
     public abstract string TransformText();
 
-    #region Transform-time helpers
+    #region Transform-time Debugging Helpers
+
+    /// <summary>
+    /// Write out the <see cref="System.CodeDom.Compiler.GeneratedCodeAttribute"/> for a member that declares the name of this tool and the current version.
+    /// If this is a debug build, the name of the calling method that executed this method will be injected as the Tool to assist with debugging and extension development
+    /// </summary>
+    /// <param name="member">Name of the method that called into this method</param>
+    /// <remarks>Member name is only visible during debugging</remarks>
+    internal abstract void WriteGeneratedCodeAttribute([System.Runtime.CompilerServices.CallerMemberName] string member = null);
+
+    /// <summary>
+    /// Launch and attach the debugger to the process that is executing the generation
+    /// </summary>
+    /// <remarks>this is to assist live debugging of the generation logic</remarks>
+    [System.Diagnostics.Conditional("DEBUG")]
+    public void LaunchDebugger()
+    {
+        System.Diagnostics.Debugger.Launch();
+    }
+
+#endregion Transform-time Debugging Helpers
+
+
+#region Transform-time helpers
+
     /// <summary>
     /// Write text directly into the generated output
     /// </summary>
@@ -2966,8 +3013,8 @@ public abstract class TemplateBase
         this.indentLengths.Clear();
         this.currentIndentField = "";
     }
-    #endregion
-    #region ToString Helpers
+#endregion
+#region ToString Helpers
     /// <summary>
     /// Utility class to produce culture-oriented representation of an object as a string.
     /// </summary>
@@ -3017,7 +3064,7 @@ public abstract class TemplateBase
     /// </summary>
     public ToStringInstanceHelper ToStringHelper => this.toStringHelperField;
 
-    #endregion
+#endregion
 }
 
 /// <summary>
@@ -3672,6 +3719,26 @@ public sealed class ODataClientCSharpTemplate : ODataClientTemplate
             return CSharpKeywords;
         } }
     private HashSet<string> CSharpKeywords;
+
+    /// <summary>
+    /// Write out the <see cref="System.CodeDom.Compiler.GeneratedCodeAttribute"/> for a member that declares the name of this tool and the current version.
+    /// If this is a debug build, the name of the calling method that executed this method will be injected as the Tool to assist with debugging and extension development
+    /// </summary>
+    /// <param name="member">Name of the method that called into this method</param>
+    /// <remarks>Member name is only visible during debugging</remarks>
+    internal override void WriteGeneratedCodeAttribute([System.Runtime.CompilerServices.CallerMemberName] string member = null)
+    {
+        this.Write("        [global::System.CodeDom.Compiler.GeneratedCodeAttribute(\"");
+#if DEBUG
+        this.Write(member);
+#else
+this.Write("Microsoft.OData.Client.Design.T4");
+#endif
+
+        this.Write("\",\"");
+        this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
+        this.Write("\")]\r\n");
+    }
 
     internal override void WriteFileHeader()
     {
@@ -4676,21 +4743,29 @@ public sealed class ODataClientCSharpTemplate : ODataClientTemplate
 
 
     }
-
-    internal override void WritePropertyForStructuredType(string propertyType, string originalPropertyName, string propertyName, string fixedPropertyName, string privatePropertyName, string propertyInitializationValue, bool writeOnPropertyChanged)
+    internal override void WritePropertyForStructuredType(string propertyType, string originalPropertyName, string propertyName, string fixedPropertyName, string privatePropertyName, string propertyInitializationValue, bool writeOnPropertyChanged, bool writeRequiredPropertyAttribute, int? maxPropertyDataLength)
     {
 
         this.Write("        /// <summary>\r\n        /// There are no comments for Property ");
 
         this.Write(this.ToStringHelper.ToStringWithCulture(propertyName));
 
-        this.Write(" in the schema.\r\n        /// </summary>\r\n        [global::System.CodeDom.Compiler" +
-                ".GeneratedCodeAttribute(\"Microsoft.OData.Client.Design.T4\", \"");
+        this.Write(" in the schema.\r\n        /// </summary>\r\n");
 
-        this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
+        this.WriteGeneratedCodeAttribute();
 
-        this.Write("\")]\r\n");
-
+        if(writeRequiredPropertyAttribute)
+        {
+            this.Write("        [global::System.ComponentModel.DataAnnotations.RequiredAttribute(ErrorMessage = \"");
+            this.Write(this.ToStringHelper.ToStringWithCulture(propertyName));
+            this.Write(" is required.\")]\r\n");
+        }
+        if(maxPropertyDataLength.GetValueOrDefault() > 0)
+        {
+            this.Write("        [global::System.ComponentModel.DataAnnotations.MaxLengthAttribute(" + maxPropertyDataLength.Value + ", ErrorMessage = \"");
+            this.Write(this.ToStringHelper.ToStringWithCulture(propertyName));
+            this.Write(" must be less than " + maxPropertyDataLength + " characters.\")]\r\n");
+        }
 
         if (this.context.EnableNamingAlias || IdentifierMappings.ContainsKey(originalPropertyName))
         {
@@ -4700,7 +4775,6 @@ public sealed class ODataClientCSharpTemplate : ODataClientTemplate
             this.Write(this.ToStringHelper.ToStringWithCulture(originalPropertyName));
 
             this.Write("\")]\r\n");
-
 
         }
 
@@ -5160,6 +5234,7 @@ protected global::System.Threading.Tasks.Task OnPropertyChanged([global::System.
 
 
     }
+    
     internal override void WriteBoundFunctionWithInputWrapperInEntityTypeReturnCollectionResult(bool hideBaseMethod, string functionName, string originalFunctionName, string returnTypeName, string inputWrapperTypeName, string[] parameterNames, string fullNamespace, bool useEntityReference)
     {
 
@@ -5168,6 +5243,8 @@ protected global::System.Threading.Tasks.Task OnPropertyChanged([global::System.
         this.Write(this.ToStringHelper.ToStringWithCulture(functionName));
 
         this.Write(" in the schema.\r\n        /// </summary>\r\n");
+
+        this.WriteGeneratedCodeAttribute();
 
 
         if (this.context.EnableNamingAlias)
@@ -5291,6 +5368,7 @@ protected global::System.Threading.Tasks.Task OnPropertyChanged([global::System.
 
         this.Write(" in the schema.\r\n        /// </summary>\r\n");
 
+        this.WriteGeneratedCodeAttribute();
 
         if (this.context.EnableNamingAlias)
         {
@@ -5456,6 +5534,8 @@ protected global::System.Threading.Tasks.Task OnPropertyChanged([global::System.
         this.Write(parsedActionName);
 
         this.Write(" in the schema.\r\n        /// </summary>\r\n");
+
+        this.WriteGeneratedCodeAttribute();
 
 
         if (this.context.EnableNamingAlias)
@@ -5712,6 +5792,8 @@ protected global::System.Threading.Tasks.Task OnPropertyChanged([global::System.
 
         this.Write(" in the schema.\r\n        /// </summary>\r\n");
 
+        this.WriteGeneratedCodeAttribute();
+
 
         if (this.context.EnableNamingAlias)
         {
@@ -5750,7 +5832,7 @@ protected global::System.Threading.Tasks.Task OnPropertyChanged([global::System.
             parameterNames = temp.ToArray();
         }
 
-        this.Write(")\r\n        {\r\n            return this." + this.ToStringHelper.ToStringWithCulture(functionName) + "(" + String.Join(", ", parameterNames.Select(x => "request." + x)));
+        this.Write(")\r\n        {\r\n            return _source." + this.ToStringHelper.ToStringWithCulture(functionName) + "(" + String.Join(", ", parameterNames.Select(x => "request." + x)));
         this.Write(");\r\n        }\r\n");
 
 
@@ -5829,6 +5911,8 @@ protected global::System.Threading.Tasks.Task OnPropertyChanged([global::System.
         this.Write(this.ToStringHelper.ToStringWithCulture(functionName));
 
         this.Write(" in the schema.\r\n        /// </summary>\r\n");
+
+        this.WriteGeneratedCodeAttribute();
 
 
         if (this.context.EnableNamingAlias)
@@ -5943,6 +6027,7 @@ protected global::System.Threading.Tasks.Task OnPropertyChanged([global::System.
 
         this.Write(" in the schema.\r\n        /// </summary>\r\n");
 
+        this.WriteGeneratedCodeAttribute();
 
         if (this.context.EnableNamingAlias)
         {
@@ -6094,6 +6179,26 @@ public sealed class ODataClientVBTemplate : ODataClientTemplate
         return VBKeywords;
     } }
     private HashSet<string> VBKeywords;
+
+    /// <summary>
+    /// Write out the <see cref="System.CodeDom.Compiler.GeneratedCodeAttribute"/> for a member that declares the name of this tool and the current version.
+    /// If this is a debug build, the name of the calling method that executed this method will be injected as the Tool to assist with debugging and extension development
+    /// </summary>
+    /// <param name="member">Name of the method that called into this method</param>
+    /// <remarks>Member name is only visible during debugging</remarks>
+    internal override void WriteGeneratedCodeAttribute([System.Runtime.CompilerServices.CallerMemberName] string member = null)
+    {
+        this.Write("        <global.System.CodeDom.Compiler.GeneratedCodeAttribute(\"");
+#if DEBUG
+        this.Write(member);
+#else
+this.Write("Microsoft.OData.Client.Design.T4");
+#endif
+
+        this.Write("\",\"");
+        this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
+        this.Write("\")>\r\n _");
+    }
 
     internal override void WriteFileHeader()
     {
@@ -7036,7 +7141,7 @@ this.Write("\r\n        End Function\r\n");
 
     }
 
-    internal override void WritePropertyForStructuredType(string propertyType, string originalPropertyName, string propertyName, string fixedPropertyName, string privatePropertyName, string propertyInitializationValue, bool writeOnPropertyChanged)
+    internal override void WritePropertyForStructuredType(string propertyType, string originalPropertyName, string propertyName, string fixedPropertyName, string privatePropertyName, string propertyInitializationValue, bool writeOnPropertyChanged, bool writeRequiredPropertyAttribute, int? maxPropertyDataLength)
     {
 
 this.Write("        \'\'\'<summary>\r\n        \'\'\'There are no comments for Property ");
@@ -7061,6 +7166,21 @@ this.Write(this.ToStringHelper.ToStringWithCulture(originalPropertyName));
 this.Write("\")>  _\r\n");
 
 
+        }
+
+this.WriteGeneratedCodeAttribute();
+
+        if (writeRequiredPropertyAttribute)
+        {
+this.Write("        <Global.System.ComponentModel.DataAnnotations.RequiredAttribute(ErrorMessage = \"");
+this.Write(this.ToStringHelper.ToStringWithCulture(propertyName));
+this.Write(" is required.\")>  _\r\n");
+        }
+        if (maxPropertyDataLength.GetValueOrDefault() > 0)
+        {
+            this.Write("        <global.System.ComponentModel.DataAnnotations.MaxLengthAttribute(" + maxPropertyDataLength.Value + ", ErrorMessage = \"");
+            this.Write(this.ToStringHelper.ToStringWithCulture(propertyName));
+            this.Write(" must be less than " + maxPropertyDataLength + " characters.\")> _\r\n");
         }
 
 this.Write("        Public Property ");
@@ -7102,12 +7222,9 @@ this.Write("\")\r\n");
 
         }
 
-this.Write("            End Set\r\n        End Property\r\n        <Global.System.CodeDom.Compile" +
-        "r.GeneratedCodeAttribute(\"Microsoft.OData.Client.Design.T4\", \"");
+this.Write("            End Set\r\n        End Property\r\n _");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
-
-this.Write("\")>  _\r\n");
+this.WriteGeneratedCodeAttribute();
 
 
         string constructorString = string.Empty;
@@ -7147,18 +7264,16 @@ this.Write("Changed()\r\n        End Sub\r\n");
     {
 
 this.Write("        \'\'\' <summary>\r\n        \'\'\' This event is raised when the value of the pro" +
-        "perty is changed\r\n        \'\'\' </summary>\r\n        <Global.System.CodeDom.Compile" +
-        "r.GeneratedCodeAttribute(\"Microsoft.OData.Client.Design.T4\", \"");
+        "perty is changed\r\n        \'\'\' </summary>\r\n _");
+this.WriteGeneratedCodeAttribute();
 
-this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
-
-this.Write(@""")>  _
+this.Write(@"
         Public Event PropertyChanged As Global.System.ComponentModel.PropertyChangedEventHandler Implements Global.System.ComponentModel.INotifyPropertyChanged.PropertyChanged
         ''' <summary>
         ''' The value of the property is changed
         ''' </summary>
-        ''' <param name=""property"">property name</param>
-        <Global.System.CodeDom.Compiler.GeneratedCodeAttribute(""Microsoft.OData.Client.Design.T4"", """);
+        ''' <param name=""property"">property name</param> _");
+this.WriteGeneratedCodeAttribute();
 
 this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
 
@@ -8035,12 +8150,12 @@ this.Write(", request As " + inputWrapperTypeName);
 
 this.Write(this.ToStringHelper.ToStringWithCulture(useEntityReference ? ", Optional ByVal useEntityReference As Boolean = False" : string.Empty));
 
-if (useEntityReference)
-{
-    var temp = parameterNames.ToList();
-    temp.Add("useEntityReference");
-    parameterNames = temp.ToArray();
-}
+        if (useEntityReference)
+        {
+            var temp = parameterNames.ToList();
+            temp.Add("useEntityReference");
+            parameterNames = temp.ToArray();
+        }
 
 this.Write(") As ");
 
@@ -8052,7 +8167,7 @@ this.Write(")\r\n        End Function\r\n");
 
 }
 
-            internal override void WriteBoundFunctionReturnCollectionResultAsExtension(string functionName, string originalFunctionName, string boundTypeName, string returnTypeName, string parameters, string fullNamespace, string parameterValues, bool isComposable, bool useEntityReference)
+    internal override void WriteBoundFunctionReturnCollectionResultAsExtension(string functionName, string originalFunctionName, string boundTypeName, string returnTypeName, string parameters, string fullNamespace, string parameterValues, bool isComposable, bool useEntityReference)
     {
 
 this.Write("        \'\'\' <summary>\r\n        \'\'\' There are no comments for ");
@@ -8167,7 +8282,7 @@ this.Write(")\r\n        End Function\r\n");
 
 }
 
-            internal override void WriteBoundActionAsExtension(string actionName, string originalActionName, string boundSourceType, string returnTypeName, string parameters, string fullNamespace, string parameterValues)
+    internal override void WriteBoundActionAsExtension(string actionName, string originalActionName, string boundSourceType, string returnTypeName, string parameters, string fullNamespace, string parameterValues)
     {
 
 this.Write("        \'\'\' <summary>\r\n        \'\'\' There are no comments for ");
@@ -8281,22 +8396,22 @@ this.Write("End Namespace\r\n");
 }
 
     }
-    #region Base class
+#region Base class
     /// <summary>
     /// Base class for this transformation
     /// </summary>
     [global::System.CodeDom.Compiler.GeneratedCodeAttribute("Microsoft.VisualStudio.TextTemplating", "14.0.0.0")]
     internal class ODataT4CodeGeneratorBase
     {
-        #region Fields
+#region Fields
         private global::System.Text.StringBuilder generationEnvironmentField;
         private global::System.CodeDom.Compiler.CompilerErrorCollection errorsField;
         private global::System.Collections.Generic.List<int> indentLengthsField;
         private string currentIndentField = "";
         private bool endsWithNewline;
         private global::System.Collections.Generic.IDictionary<string, object> sessionField;
-        #endregion
-        #region Properties
+#endregion
+#region Properties
         /// <summary>
         /// The string builder that generation-time code is using to assemble generated output
         /// </summary>
@@ -8353,8 +8468,8 @@ this.Write("End Namespace\r\n");
             get => this.sessionField;
             set => this.sessionField = value;
         }
-        #endregion
-        #region Transform-time helpers
+#endregion
+#region Transform-time helpers
         /// <summary>
         /// Write text directly into the generated output
         /// </summary>
@@ -8480,8 +8595,8 @@ this.Write("End Namespace\r\n");
             this.indentLengths.Clear();
             this.currentIndentField = "";
         }
-        #endregion
-        #region ToString Helpers
+#endregion
+#region ToString Helpers
         /// <summary>
         /// Utility class to produce culture-oriented representation of an object as a string.
         /// </summary>
@@ -8531,7 +8646,7 @@ this.Write("End Namespace\r\n");
         /// </summary>
         public ToStringInstanceHelper ToStringHelper => this.toStringHelperField;
 
-        #endregion
+#endregion
     }
-    #endregion
+#endregion
 }

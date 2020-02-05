@@ -28,6 +28,7 @@ namespace Unchase.OData.ConnectedService.CodeGeneration
             this.ClientNuGetPackageName = Common.Constants.V4ClientNuGetPackage;
             this.ClientDocUri = Common.Constants.V4DocUri;
             this.ServiceConfiguration = base.Instance.ServiceConfig as ServiceConfigurationV4;
+            this.SystemComponentModelAnnotationsNuGetPackageName = Common.Constants.SystemComponentModelAnnotationsNuGetPackage;
         }
         #endregion
 
@@ -40,6 +41,9 @@ namespace Unchase.OData.ConnectedService.CodeGeneration
 
             foreach (var nugetPackage in Common.Constants.V4NuGetPackages)
                 await CheckAndInstallNuGetPackageAsync(Common.Constants.NuGetOnlineRepository, nugetPackage);
+
+            if(this.ServiceConfiguration.UseDataServiceCollection || this.ServiceConfiguration.GenerateActionInputWrapperClasses)
+                await CheckAndInstallNuGetPackageAsync(Common.Constants.NuGetOnlineRepository, this.SystemComponentModelAnnotationsNuGetPackageName);
 
             await this.Context.Logger.WriteMessageAsync(LoggerMessageCategory.Information, "Nuget Packages for OData V4 were installed.");
         }

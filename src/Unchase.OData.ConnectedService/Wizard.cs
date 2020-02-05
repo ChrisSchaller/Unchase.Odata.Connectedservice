@@ -84,7 +84,7 @@ namespace Unchase.OData.ConnectedService
                         serviceConfig.IgnoreUnexpectedElementsAndAttributes;
                     AdvancedSettingsViewModel.GenerateDynamicPropertiesCollection = serviceConfig.GenerateDynamicPropertiesCollection;
                     AdvancedSettingsViewModel.DynamicPropertiesCollectionName = serviceConfig.DynamicPropertiesCollectionName;
-                    AdvancedSettingsViewModel.GenerateActionInputWrapperClasses = serviceConfig.GenerateActionInputWrapperClasses;
+                    AdvancedSettingsViewModel.GenerateOperationInputWrapperClasses = serviceConfig.GenerateOperationInputWrapperClasses;
                     AdvancedSettingsViewModel.EnableNamingAlias = serviceConfig.EnableNamingAlias;
                     AdvancedSettingsViewModel.IncludeT4File = serviceConfig.IncludeT4File;
                     AdvancedSettingsViewModel.IncludeT4FileEnabled = true;
@@ -113,7 +113,7 @@ namespace Unchase.OData.ConnectedService
                                     serviceConfig.IgnoreUnexpectedElementsAndAttributes;
                                 advancedSettingsViewModel.GenerateDynamicPropertiesCollection = serviceConfig.GenerateDynamicPropertiesCollection;
                                 advancedSettingsViewModel.DynamicPropertiesCollectionName = serviceConfig.DynamicPropertiesCollectionName;
-                                advancedSettingsViewModel.GenerateActionInputWrapperClasses = serviceConfig.GenerateActionInputWrapperClasses;
+                                advancedSettingsViewModel.GenerateOperationInputWrapperClasses = serviceConfig.GenerateOperationInputWrapperClasses;
                                 advancedSettingsViewModel.EnableNamingAlias = serviceConfig.EnableNamingAlias;
                                 advancedSettingsViewModel.IncludeT4File = serviceConfig.IncludeT4File;
                                 advancedSettingsViewModel.IncludeT4FileEnabled = true;
@@ -235,7 +235,7 @@ namespace Unchase.OData.ConnectedService
                         AdvancedSettingsViewModel.UserSettings.IgnoreUnexpectedElementsAndAttributes,
                     GenerateDynamicPropertiesCollection = AdvancedSettingsViewModel.UserSettings.GenerateDynamicPropertiesCollection,
                     DynamicPropertiesCollectionName = AdvancedSettingsViewModel.UserSettings.DynamicPropertiesCollectionName,
-                    GenerateActionInputWrapperClasses = AdvancedSettingsViewModel.UserSettings.GenerateActionInputWrapperClasses,
+                    GenerateOperationInputWrapperClasses = AdvancedSettingsViewModel.UserSettings.GenerateOperationInputWrapperClasses,
                     EnableNamingAlias = AdvancedSettingsViewModel.UserSettings.EnableNamingAlias,
                     IncludeT4File = AdvancedSettingsViewModel.UserSettings.IncludeT4File
                 };

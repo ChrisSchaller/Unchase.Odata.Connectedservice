@@ -65,7 +65,7 @@ namespace Unchase.OData.ConnectedService.Templates
                         IgnoreUnexpectedElementsAndAttributes = this.IgnoreUnexpectedElementsAndAttributes,
                         GenerateDynamicPropertiesCollection = this.GenerateDynamicPropertiesCollection,
                         DynamicPropertiesCollectionName = this.DynamicPropertiesCollectionName,
-                        GenerateActionInputWrapperClasses = this.GenerateActionInputWrapperClasses,
+                        GenerateOperationInputWrapperClasses = this.GenerateOperationInputWrapperClasses,
                         ExcludedOperationImportsNames = this.ExcludedOperationImportsNames
                     };
                 }
@@ -87,7 +87,7 @@ namespace Unchase.OData.ConnectedService.Templates
                         IgnoreUnexpectedElementsAndAttributes = this.IgnoreUnexpectedElementsAndAttributes,
                         GenerateDynamicPropertiesCollection = this.GenerateDynamicPropertiesCollection,
                         DynamicPropertiesCollectionName = this.DynamicPropertiesCollectionName,
-                        GenerateActionInputWrapperClasses = this.GenerateActionInputWrapperClasses,
+                        GenerateOperationInputWrapperClasses = this.GenerateOperationInputWrapperClasses,
                         ExcludedOperationImportsNames = this.ExcludedOperationImportsNames
                     };
                 }
@@ -179,7 +179,7 @@ public static class Configuration
     // This flag indicates whether to generate wrapper classes around the input arguments for actions so they can be passed as a single entity
     // this was the default behavior in SOAP and WCF services client generation, but is still relevant today as it allows advanced user interface
     // option such as binding these classes directly to the UI as simple view models, this feature is most powerful when combined with `UseDataServiceCollection`
-    public const bool GenerateActionInputWrapperClasses = false;
+    public const bool GenerateOperationInputWrapperClasses = false;
 
     // The string for the comma separated OperationImports (ActionImports and FunctionImports) names in metadata to exclude from generated code. 
     public const string ExcludedOperationImportsNames = "";
@@ -380,7 +380,7 @@ public string DynamicPropertiesCollectionName
 /// <summary>
 /// Generate classes to wrap action input arguments so they can be passed as a single entity, and these classes can then be used as simple view models that can be bound to user interfaces
 /// </summary>
-public bool GenerateActionInputWrapperClasses
+public bool GenerateOperationInputWrapperClasses
 {
     get;
     set;
@@ -530,10 +530,10 @@ public void ValidateAndSetGenerateDynamicPropertiesCollectionFromString(string s
 }
 
 /// <summary>
-/// Set the GenerateActionInputWrapperClasses property with the given value.
+/// Set the GenerateOperationInputWrapperClasses property with the given value.
 /// </summary>
 /// <param name="stringValue">The value to set.</param>
-public void ValidateAndSetGenerateActionInputWrapperClassesFromString(string stringValue)
+public void ValidateAndSetGenerateOperationInputWrapperClassesFromString(string stringValue)
 {
     bool boolValue;
     if (!bool.TryParse(stringValue, out boolValue))
@@ -543,10 +543,10 @@ public void ValidateAndSetGenerateActionInputWrapperClassesFromString(string str
         // custom tool inside Visual Studio, update the .odata.config file in the project with a valid parameter
         // value then hit Ctrl-S to save the .tt file to refresh the code generation.
         // ********************************************************************************************************
-        throw new ArgumentException(string.Format("The value \"{0}\" cannot be assigned to the GenerateActionInputWrapperClasses parameter because it is not a valid boolean value.", stringValue));
+        throw new ArgumentException(string.Format("The value \"{0}\" cannot be assigned to the GenerateOperationInputWrapperClasses parameter because it is not a valid boolean value.", stringValue));
     }
 
-    this.GenerateActionInputWrapperClasses = boolValue;
+    this.GenerateOperationInputWrapperClasses = boolValue;
 }
 
 /// <summary>
@@ -564,7 +564,7 @@ private void ApplyParametersFromConfigurationClass()
     this.IgnoreUnexpectedElementsAndAttributes = Configuration.IgnoreUnexpectedElementsAndAttributes;
     this.GenerateDynamicPropertiesCollection = Configuration.GenerateDynamicPropertiesCollection;
     this.DynamicPropertiesCollectionName = Configuration.DynamicPropertiesCollectionName;
-    this.GenerateActionInputWrapperClasses = Configuration.GenerateActionInputWrapperClasses;
+    this.GenerateOperationInputWrapperClasses = Configuration.GenerateOperationInputWrapperClasses;
     this.ExcludedOperationImportsNames = Configuration.ExcludedOperationImportsNames;
 }
 
@@ -632,10 +632,10 @@ private void ApplyParametersFromCommandLine()
         this.DynamicPropertiesCollectionName = dynamicPropertiesCollectionName;
     }
 
-    string generateActionInputWrapperClasses = this.Host.ResolveParameterValue("notempty", "notempty", "GenerateActionInputWrapperClasses");
-    if (!string.IsNullOrEmpty(generateActionInputWrapperClasses))
+    string GenerateOperationInputWrapperClasses = this.Host.ResolveParameterValue("notempty", "notempty", "GenerateOperationInputWrapperClasses");
+    if (!string.IsNullOrEmpty(GenerateOperationInputWrapperClasses))
     {
-        this.ValidateAndSetGenerateActionInputWrapperClassesFromString(generateActionInputWrapperClasses);
+        this.ValidateAndSetGenerateOperationInputWrapperClassesFromString(GenerateOperationInputWrapperClasses);
     }
 
     string excludedOperationImportsNames = this.Host.ResolveParameterValue("notempty", "notempty", "ExcludedOperationImportsNames");
@@ -1006,9 +1006,9 @@ public class CodeGenerationContext
     }
 
     /// <summary>
-    /// Generate classes to wrap action input arguments so they can be passed as a single entity, and these classes can then be used as simple view models that can be bound to user interfaces
+    /// Generate classes to wrap opertaion input arguments so they can be passed as a single entity, and these classes can then be used as simple view models that can be bound to user interfaces
     /// </summary>
-    public bool GenerateActionInputWrapperClasses
+    public bool GenerateOperationInputWrapperClasses
     {
         get;
         set;
@@ -1370,12 +1370,15 @@ public abstract class ODataClientTemplate : TemplateBase
     internal abstract void WriteEnumEnd();
     internal abstract void WritePropertyRootNamespace(string containerName, string fullNamespace);
     internal abstract void WriteFunctionImportReturnCollectionResult(string functionName, string originalFunctionName, string returnTypeName, string parameters, string parameterValues, bool isComposable, bool useEntityReference);
+    internal abstract void WriteFunctionImportWithInputWrapperReturnCollectionResult(string functionName, string originalFunctionName, string returnTypeName, string inputWrapperTypeName, string[] parameterNames, bool useEntityReference);
     internal abstract void WriteFunctionImportReturnSingleResult(string functionName, string originalFunctionName, string returnTypeName, string returnTypeNameWithSingleSuffix, string parameters, string parameterValues, bool isComposable, bool isReturnEntity, bool useEntityReference);
+    internal abstract void WriteFunctionImportWithInputWrapperReturnSingleResult(string functionName, string originalFunctionName, string returnTypeName, string returnTypeNameWithSingleSuffix, string inputWrapperTypeName, string[] parameterNames, bool isReturnEntity, bool useEntityReference);
     internal abstract void WriteBoundFunctionInEntityTypeReturnCollectionResult(bool hideBaseMethod, string functionName, string originalFunctionName, string returnTypeName, string parameters, string fullNamespace, string parameterValues, bool isComposable, bool useEntityReference);
     internal abstract void WriteBoundFunctionWithInputWrapperInEntityTypeReturnCollectionResult(bool hideBaseMethod, string functionName, string originalFunctionName, string returnTypeName, string inputWrapperTypeName, string[] parameterNames, string fullNamespace, bool useEntityReference);
     internal abstract void WriteBoundFunctionInEntityTypeReturnSingleResult(bool hideBaseMethod, string functionName, string originalFunctionName, string returnTypeName, string returnTypeNameWithSingleSuffix, string parameters, string fullNamespace, string parameterValues, bool isComposable, bool isReturnEntity, bool useEntityReference);
     internal abstract void WriteBoundFunctionWithInputWrapperInEntityTypeReturnSingleResult(bool hideBaseMethod, string functionName, string originalFunctionName, string returnTypeName, string returnTypeNameWithSingleSuffix, string inputWrapperTypeName, string[] parameterNames, string fullNamespace, bool isReturnEntity, bool useEntityReference);
     internal abstract void WriteActionImport(string actionName, string originalActionName, string returnTypeName, string parameters, string parameterValues);
+    internal abstract void WriteActionImportWithInputWrapper(string actionName, string originalActionName, string returnTypeName, string inputWrapperTypeName, string[] parameterNames);
     internal abstract void WriteBoundActionInEntityType(bool hideBaseMethod, string actionName, string originalActionName, string returnTypeName, string parameters, string fullNamespace, string parameterValues);
     internal abstract void WriteBoundActionWithInputWrapperInEntityType(bool hideBaseMethod, string actionName, string originalActionName, string returnTypeName, string inputWrapperTypeName, string[] parameterNames, string fullNamespace);
     internal abstract void WriteConstructorForSingleType(string singleTypeName, string baseTypeName);
@@ -1596,7 +1599,7 @@ public abstract class ODataClientTemplate : TemplateBase
                     }
 
                     string[] parameterNames = function.Parameters.Skip(function.IsBound ? 1 : 0).Select(x => x.Name).ToArray(); // skip the binding/type reference parameter
-                    bool generateInputWrapperClass = this.context.GenerateActionInputWrapperClasses && parameterNames.Length > 1; // single parameters don't gain anything by using an object wrapper
+                    bool generateInputWrapperClass = this.context.GenerateOperationInputWrapperClasses && parameterNames.Length > 1; // single parameters don't gain anything by using an object wrapper
                     string inputWrapperTypeName = (structuredType as IEdmType ?? primitiveType as IEdmType).FullTypeName() + "." + functionName + WrappedActionClassSuffix;
 
                     if (!boundOperations.Contains(func))
@@ -1730,7 +1733,7 @@ public abstract class ODataClientTemplate : TemplateBase
                     string fixedActionName = GetFixedName(actionName);
 
                     string[] parameterNames = action.Parameters.Skip(action.IsBound ? 1 : 0).Select(x => x.Name).ToArray(); // skip the binding/type reference parameter
-                    bool generateInputWrapperClass = this.context.GenerateActionInputWrapperClasses && parameterNames.Length > 1; // single parameters don't gain anything by using an object wrapper
+                    bool generateInputWrapperClass = this.context.GenerateOperationInputWrapperClasses && parameterNames.Length > 1; // single parameters don't gain anything by using an object wrapper
                     string inputWrapperTypeName = (structuredType as IEdmType ?? primitiveType as IEdmType).FullTypeName() + "." + actionName + WrappedActionClassSuffix; 
 
                     string ac = $"{fixedActionName}({sourceTypeName},{parameterTypes})";
@@ -1904,16 +1907,27 @@ public abstract class ODataClientTemplate : TemplateBase
                 fixedContainerName = Customization.CustomizeNaming(fixedContainerName);
             }
 
+            string[] parameterNames = functionImport.Function.Parameters.Skip(functionImport.Function.IsBound ? 1 : 0).Select(x => x.Name).ToArray(); // skip the binding/type reference parameter
+            bool generateInputWrapperClass = this.context.GenerateOperationInputWrapperClasses && parameterNames.Length > 1; // single parameters don't gain anything by using an object wrapper
+            string inputWrapperTypeName = fixedContainerName + "." + functionImportName + WrappedActionClassSuffix;
+
             if (functionImport.Function.ReturnType.IsCollection())
             {
                 this.WriteFunctionImportReturnCollectionResult(this.GetFixedName(functionImportName), functionImport.Name, returnTypeName, parameterString, parameterValues, functionImport.Function.IsComposable, useEntityReference);
+                if(generateInputWrapperClass)
+                    this.WriteFunctionImportWithInputWrapperReturnCollectionResult(this.GetFixedName(functionImportName), functionImport.Name, returnTypeName, inputWrapperTypeName, parameterNames, useEntityReference);
             }
             else
             {
                 this.WriteFunctionImportReturnSingleResult(this.GetFixedName(functionImportName), functionImport.Name, returnTypeName, returnTypeNameWithSingleSuffix, parameterString, parameterValues, functionImport.Function.IsComposable, functionImport.Function.ReturnType.IsEntity(), useEntityReference);
+                if (generateInputWrapperClass)
+                    this.WriteFunctionImportWithInputWrapperReturnSingleResult(this.GetFixedName(functionImportName), functionImport.Name, returnTypeName, returnTypeNameWithSingleSuffix, inputWrapperTypeName, parameterNames, functionImport.Function.ReturnType.IsEntity(), useEntityReference);
             }
+
+            if (generateInputWrapperClass)
+                this.WriteBoundOperationInputWrapperClass(functionImport.Function);
         }
-        
+
         foreach (IEdmActionImport actionImport in container.OperationImports().OfType<IEdmActionImport>())
         {
             if (excludedOperationImportsNames.Contains(actionImport.Name))
@@ -1941,7 +1955,16 @@ public abstract class ODataClientTemplate : TemplateBase
                 fixedContainerName = Customization.CustomizeNaming(fixedContainerName);
             }
 
+            string[] parameterNames = actionImport.Action.Parameters.Skip(actionImport.Action.IsBound ? 1 : 0).Select(x => x.Name).ToArray(); // skip the binding/type reference parameter
+            bool generateInputWrapperClass = this.context.GenerateOperationInputWrapperClasses && parameterNames.Length > 1; // single parameters don't gain anything by using an object wrapper
+            string inputWrapperTypeName = fixedContainerName + "." + actionImportName + WrappedActionClassSuffix;
+
             this.WriteActionImport(this.GetFixedName(actionImportName), actionImport.Name, returnTypeName, parameterString, parameterValues);
+            if (generateInputWrapperClass)
+            {
+                this.WriteActionImportWithInputWrapper(this.GetFixedName(actionImportName), actionImport.Name, returnTypeName, inputWrapperTypeName, parameterNames);
+                this.WriteBoundOperationInputWrapperClass(actionImport.Action);
+            }
         }
 
         this.WriteClassEndForEntityContainer();
@@ -2101,7 +2124,7 @@ public abstract class ODataClientTemplate : TemplateBase
 
         this.WriteBoundOperations(entityType, boundOperationsMap);
 
-        if (this.context.GenerateActionInputWrapperClasses)
+        if (this.context.GenerateOperationInputWrapperClasses)
         {
             this.WriteBoundOperationInputWrapperClasses(entityType, boundOperationsMap, boundCollectionOperationsMap);
         }
@@ -2150,7 +2173,7 @@ public abstract class ODataClientTemplate : TemplateBase
                 }
 
                 string[] parameterNames = function.Parameters.Skip(function.IsBound ? 1 : 0).Select(x => x.Name).ToArray(); // skip the binding/type reference parameter
-                bool generateInputWrapperClass = this.context.GenerateActionInputWrapperClasses && parameterNames.Length > 1; // single parameters don't gain anything by using an object wrapper
+                bool generateInputWrapperClass = this.context.GenerateOperationInputWrapperClasses && parameterNames.Length > 1; // single parameters don't gain anything by using an object wrapper
                 string inputWrapperTypeName = structuredType.FullTypeName() + "." + GetFixedName(functionName) + WrappedActionClassSuffix;
 
                 if (function.ReturnType.IsCollection())
@@ -2193,7 +2216,7 @@ public abstract class ODataClientTemplate : TemplateBase
                 this.WriteBoundActionInEntityType(hideBaseMethod, GetFixedName(actionName), action.Name, returnTypeName, parameterString, action.Namespace, parameterValues);
 
                 string[] parameterNames = action.Parameters.Skip(action.IsBound ? 1 : 0).Select(x => x.Name).ToArray(); // skip the binding/type reference parameter
-                bool generateInputWrapperClass = this.context.GenerateActionInputWrapperClasses && parameterNames.Length > 1; // single parameters don't gain anything by using an object wrapper
+                bool generateInputWrapperClass = this.context.GenerateOperationInputWrapperClasses && parameterNames.Length > 1; // single parameters don't gain anything by using an object wrapper
                 if (generateInputWrapperClass)
                 {
                     string inputWrapperTypeName = structuredType.FullTypeName() + "." + GetFixedName(actionName) + WrappedActionClassSuffix;
@@ -5103,6 +5126,55 @@ protected global::System.Threading.Tasks.Task OnPropertyChanged([global::System.
 
     }
 
+    internal override void WriteFunctionImportWithInputWrapperReturnCollectionResult(string functionName, string originalFunctionName, string returnTypeName, string inputWrapperTypeName, string[] parameterNames, bool useEntityReference)
+    {
+
+        this.Write("        /// <summary>\r\n        /// There are no comments for ");
+
+        this.Write(this.ToStringHelper.ToStringWithCulture(functionName));
+
+        this.Write(" in the schema.\r\n        /// </summary>\r\n");
+
+
+        if (this.context.EnableNamingAlias)
+        {
+
+            this.Write("        [global::Microsoft.OData.Client.OriginalNameAttribute(\"");
+
+            this.Write(this.ToStringHelper.ToStringWithCulture(originalFunctionName));
+
+            this.Write("\")]\r\n");
+
+        }
+
+        this.WriteGeneratedCodeAttribute();
+
+        this.Write("        public global::Microsoft.OData.Client.DataServiceQuery<");
+
+        this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
+
+        this.Write("> ");
+
+        this.Write(this.ToStringHelper.ToStringWithCulture(functionName));
+
+        this.Write("(");
+
+        this.Write(inputWrapperTypeName + " request");
+
+        this.Write(this.ToStringHelper.ToStringWithCulture(useEntityReference ? ", bool useEntityReference = false" : string.Empty));
+
+        if (useEntityReference)
+        {
+            var temp = parameterNames.ToList();
+            temp.Add("useEntityReference");
+            parameterNames = temp.ToArray();
+        }
+
+        this.Write(")\r\n        {\r\n            return this." + this.ToStringHelper.ToStringWithCulture(functionName) + "(" + String.Join(", ", parameterNames.Select(x => "request." + x)));
+        this.Write(");\r\n        }\r\n");
+
+    }
+
     internal override void WriteFunctionImportReturnSingleResult(string functionName, string originalFunctionName, string returnTypeName, string returnTypeNameWithSingleSuffix, string parameters, string parameterValues, bool isComposable, bool isReturnEntity, bool useEntityReference)
     {
 
@@ -5163,6 +5235,56 @@ protected global::System.Threading.Tasks.Task OnPropertyChanged([global::System.
 
         this.Write(";\r\n        }\r\n");
 
+
+    }
+
+    internal override void WriteFunctionImportWithInputWrapperReturnSingleResult(string functionName, string originalFunctionName, string returnTypeName, string returnTypeNameWithSingleSuffix, string inputWrapperTypeName, string[] parameterNames, bool isReturnEntity, bool useEntityReference)
+    {
+
+        this.Write("        /// <summary>\r\n        /// There are no comments for ");
+
+        this.Write(this.ToStringHelper.ToStringWithCulture(functionName));
+
+        this.Write(" in the schema.\r\n        /// </summary>\r\n");
+
+
+        if (this.context.EnableNamingAlias)
+        {
+
+            this.Write("        [global::Microsoft.OData.Client.OriginalNameAttribute(\"");
+
+            this.Write(this.ToStringHelper.ToStringWithCulture(originalFunctionName));
+
+            this.Write("\")]\r\n");
+
+
+        }
+
+        this.WriteGeneratedCodeAttribute();
+
+        this.Write("        public ");
+
+        this.Write(this.ToStringHelper.ToStringWithCulture(isReturnEntity ? returnTypeNameWithSingleSuffix : string.Format(this.DataServiceQuerySingleStructureTemplate, returnTypeName)));
+
+        this.Write(" ");
+
+        this.Write(this.ToStringHelper.ToStringWithCulture(functionName));
+
+        this.Write("(");
+
+        this.Write(inputWrapperTypeName + " request");
+
+        this.Write(this.ToStringHelper.ToStringWithCulture(useEntityReference ? ", bool useEntityReference = false" : string.Empty));
+
+        if (useEntityReference)
+        {
+            var temp = parameterNames.ToList();
+            temp.Add("useEntityReference");
+            parameterNames = temp.ToArray();
+        }
+
+        this.Write(")\r\n        {\r\n            return this." + this.ToStringHelper.ToStringWithCulture(functionName) + "(" + String.Join(", ", parameterNames.Select(x => "request." + x)));
+        this.Write(");\r\n        }\r\n");
 
     }
 
@@ -5459,6 +5581,49 @@ protected global::System.Threading.Tasks.Task OnPropertyChanged([global::System.
 
 
     }
+    internal override void WriteActionImportWithInputWrapper(string actionName, string originalActionName, string returnTypeName, string inputWrapperTypeName, string [] parameterNames)
+    {
+        var parsedActionName = this.ToStringHelper.ToStringWithCulture(actionName);
+
+        this.Write("        /// <summary>\r\n        /// There are no comments for ");
+
+        this.Write(parsedActionName);
+
+        this.Write(" in the schema.\r\n        /// </summary>\r\n");
+
+
+        if (this.context.EnableNamingAlias)
+        {
+
+            this.Write("        [global::Microsoft.OData.Client.OriginalNameAttribute(\"");
+
+            this.Write(this.ToStringHelper.ToStringWithCulture(originalActionName));
+
+            this.Write("\")]\r\n");
+
+
+        }
+
+        this.WriteGeneratedCodeAttribute();
+
+        this.Write("        public ");
+
+        this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
+
+        this.Write(" ");
+
+        this.Write(parsedActionName);
+
+        this.Write("(");
+
+        this.Write(inputWrapperTypeName + " request");
+
+        this.Write(")\r\n        {\r\n            return new ");
+
+        this.Write(")\r\n        {\r\n            return this." + parsedActionName + "(" + String.Join(", ", parameterNames.Select(x => "request." + x)));
+        this.Write(");\r\n        }\r\n");
+
+    }
 
     internal override void WriteBoundActionInEntityType(bool hideBaseMethod, string actionName, string originalActionName, string returnTypeName, string parameters, string fullNamespace, string parameterValues)
     {
@@ -5536,7 +5701,6 @@ protected global::System.Threading.Tasks.Task OnPropertyChanged([global::System.
         this.Write(" in the schema.\r\n        /// </summary>\r\n");
 
         this.WriteGeneratedCodeAttribute();
-
 
         if (this.context.EnableNamingAlias)
         {
@@ -7428,6 +7592,56 @@ this.Write(")\r\n        End Function\r\n");
 
 
     }
+    internal override void WriteFunctionImportWithInputWrapperReturnCollectionResult(string functionName, string originalFunctionName, string returnTypeName, string inputWrapperTypeName, string[] parameterNames, bool useEntityReference)
+    {
+
+this.Write("        \'\'\' <summary>\r\n        \'\'\' There are no comments for ");
+
+this.Write(this.ToStringHelper.ToStringWithCulture(functionName));
+
+this.Write(" in the schema.\r\n        \'\'\' </summary>\r\n");
+
+
+        if (this.context.EnableNamingAlias)
+        {
+
+this.Write("        <Global.Microsoft.OData.Client.OriginalNameAttribute(\"");
+
+this.Write(this.ToStringHelper.ToStringWithCulture(originalFunctionName));
+
+this.Write("\")>  _\r\n");
+
+
+        }
+
+this.WriteGeneratedCodeAttribute();
+
+this.Write("        Public Function ");
+
+this.Write(this.ToStringHelper.ToStringWithCulture(functionName));
+
+this.Write("(");
+
+this.Write("request As " + inputWrapperTypeName);
+
+this.Write(this.ToStringHelper.ToStringWithCulture(useEntityReference ? ", Optional ByVal useEntityReference As Boolean = False" : string.Empty));
+
+if (useEntityReference)
+{
+    var temp = parameterNames.ToList();
+    temp.Add("useEntityReference");
+    parameterNames = temp.ToArray();
+}
+
+this.Write(") As Global.Microsoft.OData.Client.DataServiceQuery(Of ");
+
+this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
+
+this.Write(")\r\n            Return Me." + this.ToStringHelper.ToStringWithCulture(functionName) + "(" + String.Join(", ", parameterNames.Select(x => "request." + x)));
+
+this.Write(")\r\n        End Function\r\n");
+
+    }
 
     internal override void WriteFunctionImportReturnSingleResult(string functionName, string originalFunctionName, string returnTypeName, string returnTypeNameWithSingleSuffix, string parameters, string parameterValues, bool isComposable, bool isReturnEntity, bool useEntityReference)
     {
@@ -7488,6 +7702,56 @@ this.Write(")");
 this.Write(this.ToStringHelper.ToStringWithCulture(isReturnEntity ? ")" : string.Empty));
 
 this.Write("\r\n        End Function\r\n");
+
+
+    }
+
+    internal override void WriteFunctionImportWithInputWrapperReturnSingleResult(string functionName, string originalFunctionName, string returnTypeName, string returnTypeNameWithSingleSuffix, string inputWrapperTypeName, string[] parameterNames, bool isReturnEntity, bool useEntityReference)
+    {
+
+this.Write("        \'\'\' <summary>\r\n        \'\'\' There are no comments for ");
+
+this.Write(this.ToStringHelper.ToStringWithCulture(functionName));
+
+this.Write(" in the schema.\r\n        \'\'\' </summary>\r\n");
+
+
+        if (this.context.EnableNamingAlias)
+        {
+
+this.Write("        <Global.Microsoft.OData.Client.OriginalNameAttribute(\"");
+
+this.Write(this.ToStringHelper.ToStringWithCulture(originalFunctionName));
+
+this.Write("\")>  _\r\n");
+
+        }
+this.WriteGeneratedCodeAttribute();
+
+this.Write("        Public Function ");
+
+this.Write(this.ToStringHelper.ToStringWithCulture(functionName));
+
+this.Write("(");
+
+this.Write("request As " + inputWrapperTypeName);
+
+this.Write(this.ToStringHelper.ToStringWithCulture(useEntityReference ? ", Optional ByVal useEntityReference As Boolean = False" : string.Empty));
+
+        if (useEntityReference)
+        {
+            var temp = parameterNames.ToList();
+            temp.Add("useEntityReference");
+            parameterNames = temp.ToArray();
+        }
+
+this.Write(") As ");
+
+this.Write(this.ToStringHelper.ToStringWithCulture(isReturnEntity ? returnTypeNameWithSingleSuffix : string.Format(this.DataServiceQuerySingleStructureTemplate, returnTypeName)));
+
+this.Write(")\r\n            Return Me." + this.ToStringHelper.ToStringWithCulture(functionName) + "(" + String.Join(", ", parameterNames.Select(x => "request." + x)));
+
+this.Write(")\r\n        End Function\r\n");
 
 
     }
@@ -7787,7 +8051,47 @@ this.Write(")\r\n        End Function\r\n");
 
 
     }
-    
+    internal override void WriteActionImportWithInputWrapper(string actionName, string originalActionName, string returnTypeName, string inputWrapperTypeName, string[] parameterNames)
+    {
+
+this.Write("        \'\'\' <summary>\r\n        \'\'\' There are no comments for ");
+
+this.Write(this.ToStringHelper.ToStringWithCulture(actionName));
+
+this.Write(" in the schema.\r\n        \'\'\' </summary>\r\n");
+
+
+        if (this.context.EnableNamingAlias)
+        {
+
+this.Write("        <Global.Microsoft.OData.Client.OriginalNameAttribute(\"");
+
+this.Write(this.ToStringHelper.ToStringWithCulture(originalActionName));
+
+this.Write("\")>  _\r\n");
+
+
+        }
+this.WriteGeneratedCodeAttribute();
+                    
+this.Write("        Public Function ");
+
+this.Write(this.ToStringHelper.ToStringWithCulture(actionName));
+
+this.Write("(");
+
+this.Write("request As " + inputWrapperTypeName);
+
+this.Write(") As ");
+
+this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
+
+this.Write(")\r\n            Return Me." + this.ToStringHelper.ToStringWithCulture(actionName) + "(" + String.Join(", ", parameterNames.Select(x => "request." + x)));
+
+this.Write(")\r\n        End Function\r\n");
+
+    }
+
     internal override void WriteBoundActionInEntityType(bool hideBaseMethod, string actionName, string originalActionName, string returnTypeName, string parameters, string fullNamespace, string parameterValues)
     {
 

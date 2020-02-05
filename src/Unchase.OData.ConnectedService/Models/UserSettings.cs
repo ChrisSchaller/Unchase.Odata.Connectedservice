@@ -75,7 +75,7 @@ namespace Unchase.OData.ConnectedService.Models
         public string DynamicPropertiesCollectionName { get; set; } = Constants.DefaultDynamicPropertiesCollectionName;
         
         [DataMember]
-        public bool GenerateActionInputWrapperClasses { get; set; } = false;
+        public bool GenerateOperationInputWrapperClasses { get; set; } = false;
 
         [DataMember]
         public bool IncludeT4File { get; set; }

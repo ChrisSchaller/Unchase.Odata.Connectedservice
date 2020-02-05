@@ -147,19 +147,19 @@ namespace Unchase.OData.ConnectedService.ViewModels
         }
         #endregion
 
-        #region GenerateActionInputWrapperClasses
-        private bool _generateActionInputWrapperClasses;
+        #region GenerateOperationInputWrapperClasses
+        private bool _GenerateOperationInputWrapperClasses;
         /// <summary>
-        /// Generate classes to wrap action input arguments so they can be passed as a single entity, and these classes can then be used as simple view models that can be bound to user interfaces
+        /// Generate classes to wrap operation input arguments so they can be passed as a single entity, and these classes can then be used as simple view models that can be bound to user interfaces
         /// </summary>
-        public bool GenerateActionInputWrapperClasses
+        public bool GenerateOperationInputWrapperClasses
         {
-            get => _generateActionInputWrapperClasses;
+            get => _GenerateOperationInputWrapperClasses;
             set
             {
-                _generateActionInputWrapperClasses = value;
-                UserSettings.GenerateActionInputWrapperClasses = value;
-                OnPropertyChanged(nameof(GenerateActionInputWrapperClasses));
+                _GenerateOperationInputWrapperClasses = value;
+                UserSettings.GenerateOperationInputWrapperClasses = value;
+                OnPropertyChanged(nameof(GenerateOperationInputWrapperClasses));
             }
         }
         #endregion
@@ -291,7 +291,7 @@ namespace Unchase.OData.ConnectedService.ViewModels
             this.IgnoreUnexpectedElementsAndAttributes = UserSettings.IgnoreUnexpectedElementsAndAttributes;
             this.GenerateDynamicPropertiesCollection = UserSettings.GenerateDynamicPropertiesCollection;
             this.DynamicPropertiesCollectionName = UserSettings.DynamicPropertiesCollectionName;
-            this.GenerateActionInputWrapperClasses = UserSettings.GenerateActionInputWrapperClasses;
+            this.GenerateOperationInputWrapperClasses = UserSettings.GenerateOperationInputWrapperClasses;
             this.GeneratedFileNameEnabled = true;
             this.GeneratedFileNamePrefix = UserSettings.GeneratedFileNamePrefix ?? Constants.DefaultReferenceFileName;
             this.IncludeT4FileEnabled = true;

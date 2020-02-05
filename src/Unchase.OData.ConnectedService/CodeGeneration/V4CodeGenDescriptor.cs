@@ -42,7 +42,7 @@ namespace Unchase.OData.ConnectedService.CodeGeneration
             foreach (var nugetPackage in Common.Constants.V4NuGetPackages)
                 await CheckAndInstallNuGetPackageAsync(Common.Constants.NuGetOnlineRepository, nugetPackage);
 
-            if(this.ServiceConfiguration.UseDataServiceCollection || this.ServiceConfiguration.GenerateActionInputWrapperClasses)
+            if(this.ServiceConfiguration.UseDataServiceCollection || this.ServiceConfiguration.GenerateOperationInputWrapperClasses)
                 await CheckAndInstallNuGetPackageAsync(Common.Constants.NuGetOnlineRepository, this.SystemComponentModelAnnotationsNuGetPackageName);
 
             await this.Context.Logger.WriteMessageAsync(LoggerMessageCategory.Information, "Nuget Packages for OData V4 were installed.");
@@ -110,7 +110,7 @@ namespace Unchase.OData.ConnectedService.CodeGeneration
                 text = Regex.Replace(text, "(public const bool IgnoreUnexpectedElementsAndAttributes = )true;", "$1" + this.ServiceConfiguration.IgnoreUnexpectedElementsAndAttributes.ToString().ToLower(CultureInfo.InvariantCulture) + ";");
                 text = Regex.Replace(text, "(public const bool GenerateDynamicPropertiesCollection = )true;", "$1" + this.ServiceConfiguration.GenerateDynamicPropertiesCollection.ToString().ToLower(CultureInfo.InvariantCulture) + ";");
                 text = Regex.Replace(text, "(public const string DynamicPropertiesCollectionName = )\"DynamicProperties\";", "$1\"" + $"{(!string.IsNullOrWhiteSpace(ServiceConfiguration.DynamicPropertiesCollectionName) ? ServiceConfiguration.DynamicPropertiesCollectionName : Common.Constants.DefaultDynamicPropertiesCollectionName)}" + "\";");
-                text = Regex.Replace(text, "(public const bool GenerateActionInputWrapperClasses = )false;", "$1" + this.ServiceConfiguration.GenerateActionInputWrapperClasses.ToString().ToLower(CultureInfo.InvariantCulture) + ";");
+                text = Regex.Replace(text, "(public const bool GenerateOperationInputWrapperClasses = )false;", "$1" + this.ServiceConfiguration.GenerateOperationInputWrapperClasses.ToString().ToLower(CultureInfo.InvariantCulture) + ";");
 
                 text = Regex.Replace(text, "(public const string ExcludedOperationImportsNames = )\"\";", "$1\"" + this.ServiceConfiguration.ExcludedOperationImportsNames + "\";");
 
@@ -154,7 +154,7 @@ namespace Unchase.OData.ConnectedService.CodeGeneration
                 ExcludedOperationImportsNames = this.ServiceConfiguration?.ExcludedOperationImportsNames,
                 GenerateDynamicPropertiesCollection = this.ServiceConfiguration.GenerateDynamicPropertiesCollection,
                 DynamicPropertiesCollectionName = this.ServiceConfiguration?.DynamicPropertiesCollectionName,
-                GenerateActionInputWrapperClasses = this.ServiceConfiguration.GenerateActionInputWrapperClasses
+                GenerateOperationInputWrapperClasses = this.ServiceConfiguration.GenerateOperationInputWrapperClasses
             };
 
             var tempFile = Path.GetTempFileName();

@@ -55,7 +55,7 @@ THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 				IgnoreUnexpectedElementsAndAttributes = this.IgnoreUnexpectedElementsAndAttributes,
 				GenerateDynamicPropertiesCollection = this.GenerateDynamicPropertiesCollection,
                 DynamicPropertiesCollectionName = this.DynamicPropertiesCollectionName,
-                GenerateActionInputWrapperClasses = this.GenerateActionInputWrapperClasses,
+                GenerateOperationInputWrapperClasses = this.GenerateOperationInputWrapperClasses,
 				ExcludedOperationImportsNames = this.ExcludedOperationImportsNames
 			};
 		}
@@ -76,7 +76,7 @@ THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 				IgnoreUnexpectedElementsAndAttributes = this.IgnoreUnexpectedElementsAndAttributes,
 				GenerateDynamicPropertiesCollection = this.GenerateDynamicPropertiesCollection,
                 DynamicPropertiesCollectionName = this.DynamicPropertiesCollectionName,
-                GenerateActionInputWrapperClasses = this.GenerateActionInputWrapperClasses,
+                GenerateOperationInputWrapperClasses = this.GenerateOperationInputWrapperClasses,
 				ExcludedOperationImportsNames = this.ExcludedOperationImportsNames
 			};
 		}
@@ -263,7 +263,7 @@ public string DynamicPropertiesCollectionName
 /// <summary>
 /// Generate classes to wrap action input arguments so they can be passed as a single entity, and these classes can then be used as simple view models that can be bound to user interfaces
 /// </summary>
-public bool GenerateActionInputWrapperClasses
+public bool GenerateOperationInputWrapperClasses
 {
     get;
     set;
@@ -407,10 +407,10 @@ public void ValidateAndSetGenerateDynamicPropertiesCollectionFromString(string s
 }
 
 /// <summary>
-/// Set the GenerateActionInputWrapperClasses property with the given value.
+/// Set the GenerateOperationInputWrapperClasses property with the given value.
 /// </summary>
 /// <param name="stringValue">The value to set.</param>
-public void ValidateAndSetGenerateActionInputWrapperClassesFromString(string stringValue)
+public void ValidateAndSetGenerateOperationInputWrapperClassesFromString(string stringValue)
 {
     bool boolValue;
     if (!bool.TryParse(stringValue, out boolValue))
@@ -420,10 +420,10 @@ public void ValidateAndSetGenerateActionInputWrapperClassesFromString(string str
         // custom tool inside Visual Studio, update the .odata.config file in the project with a valid parameter
         // value then hit Ctrl-S to save the .tt file to refresh the code generation.
         // ********************************************************************************************************
-        throw new ArgumentException(string.Format("The value \"{0}\" cannot be assigned to the GenerateActionInputWrapperClasses parameter because it is not a valid boolean value.", stringValue));
+        throw new ArgumentException(string.Format("The value \"{0}\" cannot be assigned to the GenerateOperationInputWrapperClasses parameter because it is not a valid boolean value.", stringValue));
     }
 
-    this.GenerateActionInputWrapperClasses = boolValue;
+    this.GenerateOperationInputWrapperClasses = boolValue;
 }
 
 /// <summary>
@@ -440,7 +440,7 @@ private void ApplyParametersFromConfigurationClass()
     this.IgnoreUnexpectedElementsAndAttributes = Configuration.IgnoreUnexpectedElementsAndAttributes;
 	this.GenerateDynamicPropertiesCollection = Configuration.GenerateDynamicPropertiesCollection;
     this.DynamicPropertiesCollectionName = Configuration.DynamicPropertiesCollectionName;
-    this.GenerateActionInputWrapperClasses = Configuration.GenerateActionInputWrapperClasses;
+    this.GenerateOperationInputWrapperClasses = Configuration.GenerateOperationInputWrapperClasses;
 	this.ExcludedOperationImportsNames = Configuration.ExcludedOperationImportsNames;
 }
 
@@ -502,10 +502,10 @@ private void ApplyParametersFromCommandLine()
         this.DynamicPropertiesCollectionName = dynamicPropertiesCollectionName;
     }
 
-    string generateActionInputWrapperClasses = this.Host.ResolveParameterValue("notempty", "notempty", "GenerateActionInputWrapperClasses");
-    if (!string.IsNullOrEmpty(generateActionInputWrapperClasses))
+    string GenerateOperationInputWrapperClasses = this.Host.ResolveParameterValue("notempty", "notempty", "GenerateOperationInputWrapperClasses");
+    if (!string.IsNullOrEmpty(GenerateOperationInputWrapperClasses))
     {
-        this.ValidateAndSetGenerateActionInputWrapperClassesFromString(generateActionInputWrapperClasses);
+        this.ValidateAndSetGenerateOperationInputWrapperClassesFromString(GenerateOperationInputWrapperClasses);
     }
 
 	string excludedOperationImportsNames = this.Host.ResolveParameterValue("notempty", "notempty", "ExcludedOperationImportsNames");
@@ -878,9 +878,9 @@ public class CodeGenerationContext
     }
 
     /// <summary>
-    /// Generate classes to wrap action input arguments so they can be passed as a single entity, and these classes can then be used as simple view models that can be bound to user interfaces
+    /// Generate classes to wrap operation input arguments so they can be passed as a single entity, and these classes can then be used as simple view models that can be bound to user interfaces
     /// </summary>
-    public bool GenerateActionInputWrapperClasses
+    public bool GenerateOperationInputWrapperClasses
     {
         get;
         set;

@@ -1017,7 +1017,7 @@ public class CodeGenerationContext
     /// <summary>
     /// The string for the comma separated OperationImports (ActionImports and FunctionImports) names in metadata to exclude from generated code.
     /// </summary>
-            public string ExcludedOperationImportsNames
+    public string ExcludedOperationImportsNames
     {
         get => this.excludedOperationImportsNames;
 
@@ -1248,7 +1248,8 @@ public abstract class ODataClientTemplate : TemplateBase
     }
 
     internal string SingleSuffix => "Single";
-    internal string WrappedActionClassSuffix => "_Request";
+    internal string WrappedCollectionOperationClassSuffix => "_Request";
+    internal string WrappedItemOperationClassSuffix => "_ItemRequest";
 
     #region Get Language specific keyword names.
     internal abstract string GlobalPrefix { get; }
@@ -1477,11 +1478,7 @@ public abstract class ODataClientTemplate : TemplateBase
                         }
                 }
             }
-
-            // TODO: do we need to support un-bound operations as well?
         }
-
-        // get all operations that need wrapper classes implemented
 
         Dictionary<IEdmStructuredType, List<IEdmStructuredType>> structuredBaseTypeMap = new Dictionary<IEdmStructuredType, List<IEdmStructuredType>>();
         foreach(IEdmSchemaType type in schemaElements.OfType<IEdmSchemaType>())
@@ -1600,7 +1597,7 @@ public abstract class ODataClientTemplate : TemplateBase
 
                     string[] parameterNames = function.Parameters.Skip(function.IsBound ? 1 : 0).Select(x => x.Name).ToArray(); // skip the binding/type reference parameter
                     bool generateInputWrapperClass = this.context.GenerateOperationInputWrapperClasses && parameterNames.Length > 1; // single parameters don't gain anything by using an object wrapper
-                    string inputWrapperTypeName = (structuredType as IEdmType ?? primitiveType as IEdmType).FullTypeName() + "." + functionName + WrappedActionClassSuffix;
+                    string inputWrapperTypeName = (structuredType as IEdmType ?? primitiveType as IEdmType).FullTypeName() + "." + functionName + (edmTypeReference.IsCollection() ? WrappedCollectionOperationClassSuffix : WrappedItemOperationClassSuffix);
 
                     if (!boundOperations.Contains(func))
                     {
@@ -1734,7 +1731,7 @@ public abstract class ODataClientTemplate : TemplateBase
 
                     string[] parameterNames = action.Parameters.Skip(action.IsBound ? 1 : 0).Select(x => x.Name).ToArray(); // skip the binding/type reference parameter
                     bool generateInputWrapperClass = this.context.GenerateOperationInputWrapperClasses && parameterNames.Length > 1; // single parameters don't gain anything by using an object wrapper
-                    string inputWrapperTypeName = (structuredType as IEdmType ?? primitiveType as IEdmType).FullTypeName() + "." + actionName + WrappedActionClassSuffix; 
+                    string inputWrapperTypeName = (structuredType as IEdmType ?? primitiveType as IEdmType).FullTypeName() + "." + actionName + (edmTypeReference.IsCollection() ? WrappedCollectionOperationClassSuffix : WrappedItemOperationClassSuffix); 
 
                     string ac = $"{fixedActionName}({sourceTypeName},{parameterTypes})";
                     if (!boundOperations.Contains(ac))
@@ -1909,7 +1906,7 @@ public abstract class ODataClientTemplate : TemplateBase
 
             string[] parameterNames = functionImport.Function.Parameters.Skip(functionImport.Function.IsBound ? 1 : 0).Select(x => x.Name).ToArray(); // skip the binding/type reference parameter
             bool generateInputWrapperClass = this.context.GenerateOperationInputWrapperClasses && parameterNames.Length > 1; // single parameters don't gain anything by using an object wrapper
-            string inputWrapperTypeName = fixedContainerName + "." + functionImportName + WrappedActionClassSuffix;
+            string inputWrapperTypeName = fixedContainerName + "." + functionImportName + WrappedCollectionOperationClassSuffix;
 
             if (functionImport.Function.ReturnType.IsCollection())
             {
@@ -1957,7 +1954,7 @@ public abstract class ODataClientTemplate : TemplateBase
 
             string[] parameterNames = actionImport.Action.Parameters.Skip(actionImport.Action.IsBound ? 1 : 0).Select(x => x.Name).ToArray(); // skip the binding/type reference parameter
             bool generateInputWrapperClass = this.context.GenerateOperationInputWrapperClasses && parameterNames.Length > 1; // single parameters don't gain anything by using an object wrapper
-            string inputWrapperTypeName = fixedContainerName + "." + actionImportName + WrappedActionClassSuffix;
+            string inputWrapperTypeName = fixedContainerName + "." + actionImportName + WrappedCollectionOperationClassSuffix;
 
             this.WriteActionImport(this.GetFixedName(actionImportName), actionImport.Name, returnTypeName, parameterString, parameterValues);
             if (generateInputWrapperClass)
@@ -2174,7 +2171,7 @@ public abstract class ODataClientTemplate : TemplateBase
 
                 string[] parameterNames = function.Parameters.Skip(function.IsBound ? 1 : 0).Select(x => x.Name).ToArray(); // skip the binding/type reference parameter
                 bool generateInputWrapperClass = this.context.GenerateOperationInputWrapperClasses && parameterNames.Length > 1; // single parameters don't gain anything by using an object wrapper
-                string inputWrapperTypeName = structuredType.FullTypeName() + "." + GetFixedName(functionName) + WrappedActionClassSuffix;
+                string inputWrapperTypeName = structuredType.FullTypeName() + "." + GetFixedName(functionName) + (structuredType.TypeKind == EdmTypeKind.Collection ? WrappedCollectionOperationClassSuffix : WrappedItemOperationClassSuffix);
 
                 if (function.ReturnType.IsCollection())
                 {
@@ -2219,7 +2216,7 @@ public abstract class ODataClientTemplate : TemplateBase
                 bool generateInputWrapperClass = this.context.GenerateOperationInputWrapperClasses && parameterNames.Length > 1; // single parameters don't gain anything by using an object wrapper
                 if (generateInputWrapperClass)
                 {
-                    string inputWrapperTypeName = structuredType.FullTypeName() + "." + GetFixedName(actionName) + WrappedActionClassSuffix;
+                    string inputWrapperTypeName = structuredType.FullTypeName() + "." + GetFixedName(actionName) + (structuredType.TypeKind == EdmTypeKind.Collection ? WrappedCollectionOperationClassSuffix : WrappedItemOperationClassSuffix);
 
                     this.WriteBoundActionWithInputWrapperInEntityType(hideBaseMethod, GetFixedName(actionName), action.Name, returnTypeName, inputWrapperTypeName, parameterNames, action.Namespace);
                 }
@@ -2355,6 +2352,8 @@ public abstract class ODataClientTemplate : TemplateBase
 
         string structuredTypeName = this.context.EnableNamingAlias ?
             Customization.CustomizeNaming(((IEdmSchemaElement)structuredType).Name) : ((IEdmSchemaElement)structuredType).Name;
+
+        this.WriteGeneratedCodeAttribute();
         this.WriteClassStartForStructuredType(abstractModifier, GetFixedName(structuredTypeName + typeNameSuffix), ((IEdmSchemaElement)structuredType).Name + typeNameSuffix, baseTypeName);
     }
     
@@ -2775,7 +2774,8 @@ public abstract class ODataClientTemplate : TemplateBase
             baseTypeName += this.NotifyPropertyChangedModifier;
         }
 
-        this.WriteClassStartForStructuredType(String.Empty, operation.Name + WrappedActionClassSuffix, operation.Name, baseTypeName);
+        this.WriteGeneratedCodeAttribute();
+        this.WriteClassStartForStructuredType(String.Empty, operation.Name + WrappedCollectionOperationClassSuffix, operation.Name, baseTypeName);
 
         // Private name should not conflict with field name
         UniqueIdentifierService uniqueIdentifierService = new UniqueIdentifierService(propertyNames, this.context.TargetLanguage == LanguageOption.CSharp);

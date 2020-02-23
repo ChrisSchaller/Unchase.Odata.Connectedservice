@@ -2744,69 +2744,75 @@ public abstract class ODataClientTemplate : TemplateBase
     /// <param name="operation">The operation to generate an argument wrapper class</param>
     internal void WriteBoundOperationInputWrapperClass(IEdmOperation operation)
     {
-        // use GetParameterString as it formats types and names consistently
-        this.GetParameterStrings(operation.IsBound, operation.IsAction(), operation.Parameters.ToArray(), out var parameterString, out var parameterTypes, out var parameterExpressionString, out var parameterValues, out var useEntityReference);
-        var propertyDeclarations = parameterString.Split(',');
-        string[] propertyNames = null;
-        string[] propertyTypes = null;
-        if (this.context.TargetLanguage == LanguageOption.CSharp)
+        if (operation.IsBound)
         {
-            propertyNames = propertyDeclarations.Where(x => x.Contains(' ')).Select(x => x.Substring(x.LastIndexOf(' ') + 1)).ToArray();
-            propertyTypes = propertyDeclarations.Where(x => x.Contains(' ')).Select(x => x.Substring(0, x.LastIndexOf(' '))).ToArray();
-        }
-        else
-        {
-            propertyTypes = propertyDeclarations.Where(x => x.Contains(' ')).Select(x => x.Substring(x.LastIndexOf(' ') + 1)).ToArray();
-            propertyNames = propertyDeclarations.Where(x => x.Contains(' ')).Select(x => x.Substring(0, x.LastIndexOf(' '))).ToArray();
-        }
+            IEdmTypeReference edmTypeReference = operation.Parameters.First().Type;
 
-        // TODO: implement comments for this generated structure... 
-        //this.WriteSummaryCommentForStructuredType(requestClassName);
-
-        string baseTypeName = String.Empty;
-        if (this.context.UseDataServiceCollection)
-        {
+            // use GetParameterString as it formats types and names consistently
+            this.GetParameterStrings(operation.IsBound, operation.IsAction(), operation.Parameters.ToArray(), out var parameterString, out var parameterTypes, out var parameterExpressionString, out var parameterValues, out var useEntityReference);
+            var propertyDeclarations = parameterString.Split(',');
+            string[] propertyNames = null;
+            string[] propertyTypes = null;
             if (this.context.TargetLanguage == LanguageOption.CSharp)
             {
-                baseTypeName += string.IsNullOrEmpty(baseTypeName) ? this.ClassInheritMarker : ", ";
+                propertyNames = propertyDeclarations.Where(x => x.Contains(' ')).Select(x => x.Substring(x.LastIndexOf(' ') + 1)).ToArray();
+                propertyTypes = propertyDeclarations.Where(x => x.Contains(' ')).Select(x => x.Substring(0, x.LastIndexOf(' '))).ToArray();
+            }
+            else
+            {
+                propertyTypes = propertyDeclarations.Where(x => x.Contains(' ')).Select(x => x.Substring(x.LastIndexOf(' ') + 1)).ToArray();
+                propertyNames = propertyDeclarations.Where(x => x.Contains(' ')).Select(x => x.Substring(0, x.LastIndexOf(' '))).ToArray();
             }
 
-            baseTypeName += this.NotifyPropertyChangedModifier;
+            // TODO: implement comments for this generated structure... 
+            //this.WriteSummaryCommentForStructuredType(requestClassName);
+
+            string baseTypeName = String.Empty;
+            if (this.context.UseDataServiceCollection)
+            {
+                if (this.context.TargetLanguage == LanguageOption.CSharp)
+                {
+                    baseTypeName += string.IsNullOrEmpty(baseTypeName) ? this.ClassInheritMarker : ", ";
+                }
+
+                baseTypeName += this.NotifyPropertyChangedModifier;
+            }
+
+            this.WriteGeneratedCodeAttribute();
+            string inputWrapperTypeName = operation.Name + (edmTypeReference.IsCollection() ? WrappedCollectionOperationClassSuffix : WrappedItemOperationClassSuffix);
+            this.WriteClassStartForStructuredType(String.Empty, inputWrapperTypeName, operation.Name, baseTypeName);
+
+            // Private name should not conflict with field name
+            UniqueIdentifierService uniqueIdentifierService = new UniqueIdentifierService(propertyNames, this.context.TargetLanguage == LanguageOption.CSharp);
+            string[] declarations = parameterExpressionString.Trim().Split(',');
+            for (int i = 0; i < propertyNames.Length; i++)
+            {
+                var propertyName = propertyNames[i];
+                var propertyType = propertyTypes[i];
+                string privatePropertyName = uniqueIdentifierService.GetUniqueIdentifier("_" + propertyName);
+                var required = !declarations[i].ToLower().Contains("optional");
+
+                // we can get additional validation information from the CSL definition
+                var parameter = operation.Parameters.First(x => x.Name == propertyName);
+                var csdlElement = parameter.GetType().GetProperty("Element").GetValue(parameter); // expecting internal Microsoft.OData.Edm.Csdl.CsdlSemantics.CsdlSemanticsOperationParameter
+                bool isOptional = (bool)csdlElement.GetType().GetProperty("IsOptional").GetValue(csdlElement);
+
+                this.WritePropertyForStructuredType(
+                    propertyType,
+                    propertyName,
+                    propertyName,
+                    GetFixedName(propertyName),
+                    privatePropertyName,
+                    this.context.TargetLanguage == LanguageOption.CSharp ? "default" : "Nothing",
+                    this.context.UseDataServiceCollection,
+                    !isOptional,
+                    null
+                    );
+            }
+
+            WriteINotifyPropertyChangedImplementation();
+            this.WriteClassEndForStructuredType();
         }
-
-        this.WriteGeneratedCodeAttribute();
-        this.WriteClassStartForStructuredType(String.Empty, operation.Name + WrappedCollectionOperationClassSuffix, operation.Name, baseTypeName);
-
-        // Private name should not conflict with field name
-        UniqueIdentifierService uniqueIdentifierService = new UniqueIdentifierService(propertyNames, this.context.TargetLanguage == LanguageOption.CSharp);
-        string[] declarations = parameterExpressionString.Trim().Split(',');
-        for (int i = 0; i < propertyNames.Length; i++)
-        {
-            var propertyName = propertyNames[i];
-            var propertyType = propertyTypes[i];
-            string privatePropertyName = uniqueIdentifierService.GetUniqueIdentifier("_" + propertyName);
-            var required = !declarations[i].ToLower().Contains("optional");
-
-            // we can get additional validation information from the CSL definition
-            var parameter = operation.Parameters.First(x => x.Name == propertyName);
-            var csdlElement = parameter.GetType().GetProperty("Element").GetValue(parameter); // expecting internal Microsoft.OData.Edm.Csdl.CsdlSemantics.CsdlSemanticsOperationParameter
-            bool isOptional = (bool)csdlElement.GetType().GetProperty("IsOptional").GetValue(csdlElement);
-
-            this.WritePropertyForStructuredType(
-                propertyType,
-                propertyName,
-                propertyName,
-                GetFixedName(propertyName),
-                privatePropertyName,
-                this.context.TargetLanguage == LanguageOption.CSharp ? "default" : "Nothing",
-                this.context.UseDataServiceCollection,
-                !isOptional,
-                null
-                );
-        }
-
-        WriteINotifyPropertyChangedImplementation();
-        this.WriteClassEndForStructuredType();
     }
 
 }

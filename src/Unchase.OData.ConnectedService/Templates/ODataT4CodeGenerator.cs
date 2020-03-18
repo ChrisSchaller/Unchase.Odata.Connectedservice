@@ -1360,7 +1360,7 @@ public abstract class ODataClientTemplate : TemplateBase
     internal abstract void WriteParameterNullCheckForStaticCreateMethod(string parameterName);
     internal abstract void WritePropertyValueAssignmentForStaticCreateMethod(string instanceName, string propertyName, string parameterName);
     internal abstract void WriteMethodEndForStaticCreateMethod(string instanceName);
-    internal abstract void WritePropertyForStructuredType(string propertyType, string originalPropertyName, string propertyName, string fixedPropertyName, string privatePropertyName, string propertyInitializationValue, bool writeOnPropertyChanged, bool writeRequiredPropertyAttribute, int? maxPropertyDataLength);
+    internal abstract void WritePropertyForStructuredType(string propertyType, string originalPropertyName, string propertyName, string fixedPropertyName, string privatePropertyName, string propertyInitializationValue, bool writeOnPropertyChanged, bool writeRequiredPropertyAttribute, int? maxPropertyDataLength, string foreignKeyField, string fkPrincialField);
     internal abstract void WriteINotifyPropertyChangedImplementation();
     internal abstract void WriteClassEndForStructuredType();
     internal abstract void WriteNamespaceEnd();
@@ -2637,6 +2637,19 @@ public abstract class ODataClientTemplate : TemplateBase
                 maxLength = isUnbounded ? -1 : (int?)csdlTypeElement.GetType().GetProperty("MaxLength")?.GetValue(csdlTypeElement);
             }
 
+            // try to extract foreignKey info
+            string foreignKey = null;
+            string principalField = null;
+            if (property.PropertyKind == EdmPropertyKind.Navigation)
+            {
+                var singleReference = (property.GetType().GetProperty("ReferentialConstraint")?.GetValue(property) as Microsoft.OData.Edm.EdmReferentialConstraint)?.PropertyPairs.FirstOrDefault();
+                if (singleReference != null)
+                {
+                    foreignKey = singleReference.DependentProperty.Name;
+                    principalField = singleReference.PrincipalProperty.Name;
+                }
+            }
+
             return new
                 {
                     PropertyType = Utils.GetClrTypeName(property.Type, useDataServiceCollection, this, this.context),
@@ -2646,7 +2659,9 @@ public abstract class ODataClientTemplate : TemplateBase
                     PrivatePropertyName = "_" + propertyName,
                     PropertyInitializationValue = Utils.GetPropertyInitializationValue(property, useDataServiceCollection, this, this.context),
                     Required = false,
-                    MaxLength = maxLength
+                    MaxLength = maxLength,
+                    ForeignKey = foreignKey,
+                    PrincialField = principalField
                 };
         }).ToList();
 
@@ -2661,7 +2676,9 @@ public abstract class ODataClientTemplate : TemplateBase
                 PrivatePropertyName = "_" + Utils.CamelCase(this.context.DynamicPropertiesCollectionName),
                 PropertyInitializationValue = string.Format(this.DictionaryConstructor, this.StringTypeName, this.ObjectTypeName),
                 Required = false,
-                MaxLength = (int?)null
+                MaxLength = (int?)null,
+                ForeignKey = (string)null,
+                PrincialField = (string)null
             });
         }
 
@@ -2682,7 +2699,9 @@ public abstract class ODataClientTemplate : TemplateBase
                 propertyInfo.PropertyInitializationValue,
                 useDataServiceCollection,
                 propertyInfo.Required,
-                propertyInfo.MaxLength);
+                propertyInfo.MaxLength,
+                propertyInfo.ForeignKey,
+                propertyInfo.PrincialField);
         }
     }
 
@@ -2806,6 +2825,8 @@ public abstract class ODataClientTemplate : TemplateBase
                     this.context.TargetLanguage == LanguageOption.CSharp ? "default" : "Nothing",
                     this.context.UseDataServiceCollection,
                     !isOptional,
+                    null,
+                    null,
                     null
                     );
             }
@@ -4165,12 +4186,8 @@ this.Write("Microsoft.OData.Client.Design.T4");
 
         this.Write(this.ToStringHelper.ToStringWithCulture(singletonName));
 
-        this.Write(" in the schema.\r\n        /// </summary>\r\n        [global::System.CodeDom.Compiler" +
-                ".GeneratedCodeAttribute(\"Microsoft.OData.Client.Design.T4\", \"");
-
-        this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
-
-        this.Write("\")]\r\n");
+        this.WriteLine(" in the schema.\r\n        /// </summary>");
+        this.WriteGeneratedCodeAttribute();
 
 
         if (this.context.EnableNamingAlias)
@@ -4772,7 +4789,7 @@ this.Write("Microsoft.OData.Client.Design.T4");
 
 
     }
-    internal override void WritePropertyForStructuredType(string propertyType, string originalPropertyName, string propertyName, string fixedPropertyName, string privatePropertyName, string propertyInitializationValue, bool writeOnPropertyChanged, bool writeRequiredPropertyAttribute, int? maxPropertyDataLength)
+    internal override void WritePropertyForStructuredType(string propertyType, string originalPropertyName, string propertyName, string fixedPropertyName, string privatePropertyName, string propertyInitializationValue, bool writeOnPropertyChanged, bool writeRequiredPropertyAttribute, int? maxPropertyDataLength, string foreignKeyField, string fkPrincialField)
     {
 
         this.Write("        /// <summary>\r\n        /// There are no comments for Property ");
@@ -4794,6 +4811,10 @@ this.Write("Microsoft.OData.Client.Design.T4");
             this.Write("        [global::System.ComponentModel.DataAnnotations.MaxLengthAttribute(" + maxPropertyDataLength.Value + ", ErrorMessage = \"");
             this.Write(this.ToStringHelper.ToStringWithCulture(propertyName));
             this.Write(" must be less than " + maxPropertyDataLength + " characters.\")]\r\n");
+        }
+        if(!String.IsNullOrWhiteSpace(foreignKeyField))
+        {
+            this.Write("        [global::System.ComponentModel.DataAnnotations.Schema.ForeignKeyAttribute(nameof(" + foreignKeyField + "))]\r\n");
         }
 
         if (this.context.EnableNamingAlias || IdentifierMappings.ContainsKey(originalPropertyName))
@@ -4819,19 +4840,22 @@ this.Write("Microsoft.OData.Client.Design.T4");
 
         this.Write(this.ToStringHelper.ToStringWithCulture(privatePropertyName));
 
-        this.Write(";\r\n            }\r\n            set\r\n            {\r\n                this.On");
-
-        this.Write(this.ToStringHelper.ToStringWithCulture(propertyName));
-
-        this.Write("Changing(value);\r\n                this.");
-
-        this.Write(this.ToStringHelper.ToStringWithCulture(privatePropertyName));
-
-        this.Write(" = value;\r\n                this.On");
-
-        this.Write(this.ToStringHelper.ToStringWithCulture(propertyName));
-
-        this.Write("Changed();\r\n");
+        this.WriteLine(";\r\n            }\r\n            set\r\n            {");
+        if (String.IsNullOrWhiteSpace(foreignKeyField))
+        {
+            this.WriteLine("                this.On{0}Changing(value);", this.ToStringHelper.ToStringWithCulture(propertyName));
+            this.WriteLine("                this.{0} = value;", this.ToStringHelper.ToStringWithCulture(privatePropertyName));
+            this.WriteLine("                this.On{0}Changed();", this.ToStringHelper.ToStringWithCulture(propertyName));
+        }
+        else
+        {
+            // Allow On{FK}Changing to cancel the object change process as well.
+            this.WriteLine("                this.On{0}Changing(value);", this.ToStringHelper.ToStringWithCulture(propertyName));
+            this.WriteLine("                this.On{0}Changing(value.{1});", this.ToStringHelper.ToStringWithCulture(foreignKeyField), this.ToStringHelper.ToStringWithCulture(fkPrincialField));
+            this.WriteLine("                this.{0} = value;", this.ToStringHelper.ToStringWithCulture(privatePropertyName));
+            this.WriteLine("                this.On{0}Changed();", this.ToStringHelper.ToStringWithCulture(propertyName));
+            this.WriteLine("                this.{0} = value.{1};", this.ToStringHelper.ToStringWithCulture(foreignKeyField), this.ToStringHelper.ToStringWithCulture(fkPrincialField));
+        }
 
 
         if (writeOnPropertyChanged)
@@ -7311,7 +7335,7 @@ this.Write("\r\n        End Function\r\n");
 
     }
 
-    internal override void WritePropertyForStructuredType(string propertyType, string originalPropertyName, string propertyName, string fixedPropertyName, string privatePropertyName, string propertyInitializationValue, bool writeOnPropertyChanged, bool writeRequiredPropertyAttribute, int? maxPropertyDataLength)
+    internal override void WritePropertyForStructuredType(string propertyType, string originalPropertyName, string propertyName, string fixedPropertyName, string privatePropertyName, string propertyInitializationValue, bool writeOnPropertyChanged, bool writeRequiredPropertyAttribute, int? maxPropertyDataLength, string foreignKeyField, string fkPrincialField)
     {
 
 this.Write("        \'\'\'<summary>\r\n        \'\'\'There are no comments for Property ");
@@ -7352,6 +7376,10 @@ this.Write(" is required.\")>  _\r\n");
             this.Write(this.ToStringHelper.ToStringWithCulture(propertyName));
             this.Write(" must be less than " + maxPropertyDataLength + " characters.\")> _\r\n");
         }
+        if (!String.IsNullOrWhiteSpace(foreignKeyField))
+        {
+this.Write("        <global.System.ComponentModel.DataAnnotations.Schema.ForeignKeyAttribute(\"" + foreignKeyField + "\")> _\r\n");
+        }
 
 this.Write("        Public Property ");
 
@@ -7365,20 +7393,23 @@ this.Write("\r\n            Get\r\n                Return Me.");
 
 this.Write(this.ToStringHelper.ToStringWithCulture(privatePropertyName));
 
-this.Write("\r\n            End Get\r\n            Set\r\n                Me.On");
+this.Write("\r\n            End Get\r\n            Set\r\n");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(propertyName));
-
-this.Write("Changing(value)\r\n                Me.");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(privatePropertyName));
-
-this.Write(" = value\r\n                Me.On");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(propertyName));
-
-this.Write("Changed\r\n");
-
+        if (String.IsNullOrWhiteSpace(foreignKeyField))
+        {
+            this.WriteLine("                Me.On{0}Changing(value)", this.ToStringHelper.ToStringWithCulture(propertyName));
+            this.WriteLine("                Me.{0} = value", this.ToStringHelper.ToStringWithCulture(privatePropertyName));
+            this.WriteLine("                Me.On{0}Changed()", this.ToStringHelper.ToStringWithCulture(propertyName));
+        }
+        else
+        {
+            // Allow On{FK}Changing to cancel the object change process as well.
+            this.WriteLine("                Me.On{0}Changing(value)", this.ToStringHelper.ToStringWithCulture(propertyName));
+            this.WriteLine("                Me.On{0}Changing(value.{1})", this.ToStringHelper.ToStringWithCulture(foreignKeyField), this.ToStringHelper.ToStringWithCulture(fkPrincialField));
+            this.WriteLine("                Me.{0} = value", this.ToStringHelper.ToStringWithCulture(privatePropertyName));
+            this.WriteLine("                Me.On{0}Changed()", this.ToStringHelper.ToStringWithCulture(propertyName));
+            this.WriteLine("                Me.{0} = value.{1}", this.ToStringHelper.ToStringWithCulture(foreignKeyField), this.ToStringHelper.ToStringWithCulture(fkPrincialField));
+        }
 
         if (writeOnPropertyChanged)
         {

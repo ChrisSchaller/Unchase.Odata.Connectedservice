@@ -1360,7 +1360,7 @@ public abstract class ODataClientTemplate : TemplateBase
     internal abstract void WriteParameterNullCheckForStaticCreateMethod(string parameterName);
     internal abstract void WritePropertyValueAssignmentForStaticCreateMethod(string instanceName, string propertyName, string parameterName);
     internal abstract void WriteMethodEndForStaticCreateMethod(string instanceName);
-    internal abstract void WritePropertyForStructuredType(string propertyType, string originalPropertyName, string propertyName, string fixedPropertyName, string privatePropertyName, string propertyInitializationValue, bool writeOnPropertyChanged, bool writeRequiredPropertyAttribute, int? maxPropertyDataLength, string foreignKeyField, string fkPrincialField);
+    internal abstract void WritePropertyForStructuredType(string propertyType, string originalPropertyName, string propertyName, string fixedPropertyName, string privatePropertyName, string propertyInitializationValue, bool writeOnPropertyChanged, bool writeRequiredPropertyAttribute, int? maxPropertyDataLength, Microsoft.OData.Edm.EdmReferentialConstraint foreignKey);
     internal abstract void WriteINotifyPropertyChangedImplementation();
     internal abstract void WriteClassEndForStructuredType();
     internal abstract void WriteNamespaceEnd();
@@ -2638,16 +2638,10 @@ public abstract class ODataClientTemplate : TemplateBase
             }
 
             // try to extract foreignKey info
-            string foreignKey = null;
-            string principalField = null;
+            Microsoft.OData.Edm.EdmReferentialConstraint foreignKey = null;
             if (property.PropertyKind == EdmPropertyKind.Navigation)
             {
-                var singleReference = (property.GetType().GetProperty("ReferentialConstraint")?.GetValue(property) as Microsoft.OData.Edm.EdmReferentialConstraint)?.PropertyPairs.FirstOrDefault();
-                if (singleReference != null)
-                {
-                    foreignKey = singleReference.DependentProperty.Name;
-                    principalField = singleReference.PrincipalProperty.Name;
-                }
+                foreignKey = property.GetType().GetProperty("ReferentialConstraint")?.GetValue(property) as Microsoft.OData.Edm.EdmReferentialConstraint;
             }
 
             return new
@@ -2660,8 +2654,7 @@ public abstract class ODataClientTemplate : TemplateBase
                     PropertyInitializationValue = Utils.GetPropertyInitializationValue(property, useDataServiceCollection, this, this.context),
                     Required = false,
                     MaxLength = maxLength,
-                    ForeignKey = foreignKey,
-                    PrincialField = principalField
+                    ForeignKey = foreignKey
                 };
         }).ToList();
 
@@ -2677,8 +2670,7 @@ public abstract class ODataClientTemplate : TemplateBase
                 PropertyInitializationValue = string.Format(this.DictionaryConstructor, this.StringTypeName, this.ObjectTypeName),
                 Required = false,
                 MaxLength = (int?)null,
-                ForeignKey = (string)null,
-                PrincialField = (string)null
+                ForeignKey = (Microsoft.OData.Edm.EdmReferentialConstraint)null
             });
         }
 
@@ -2700,8 +2692,7 @@ public abstract class ODataClientTemplate : TemplateBase
                 useDataServiceCollection,
                 propertyInfo.Required,
                 propertyInfo.MaxLength,
-                propertyInfo.ForeignKey,
-                propertyInfo.PrincialField);
+                propertyInfo.ForeignKey);
         }
     }
 
@@ -2825,7 +2816,6 @@ public abstract class ODataClientTemplate : TemplateBase
                     this.context.TargetLanguage == LanguageOption.CSharp ? "default" : "Nothing",
                     this.context.UseDataServiceCollection,
                     !isOptional,
-                    null,
                     null,
                     null
                     );
@@ -4789,7 +4779,7 @@ this.Write("Microsoft.OData.Client.Design.T4");
 
 
     }
-    internal override void WritePropertyForStructuredType(string propertyType, string originalPropertyName, string propertyName, string fixedPropertyName, string privatePropertyName, string propertyInitializationValue, bool writeOnPropertyChanged, bool writeRequiredPropertyAttribute, int? maxPropertyDataLength, string foreignKeyField, string fkPrincialField)
+    internal override void WritePropertyForStructuredType(string propertyType, string originalPropertyName, string propertyName, string fixedPropertyName, string privatePropertyName, string propertyInitializationValue, bool writeOnPropertyChanged, bool writeRequiredPropertyAttribute, int? maxPropertyDataLength, Microsoft.OData.Edm.EdmReferentialConstraint foreignKey)
     {
 
         this.Write("        /// <summary>\r\n        /// There are no comments for Property ");
@@ -4812,9 +4802,9 @@ this.Write("Microsoft.OData.Client.Design.T4");
             this.Write(this.ToStringHelper.ToStringWithCulture(propertyName));
             this.Write(" must be less than " + maxPropertyDataLength + " characters.\")]\r\n");
         }
-        if(!String.IsNullOrWhiteSpace(foreignKeyField))
+        if (foreignKey != null)
         {
-            this.Write("        [global::System.ComponentModel.DataAnnotations.Schema.ForeignKeyAttribute(nameof(" + foreignKeyField + "))]\r\n");
+            this.Write("        [global::System.ComponentModel.DataAnnotations.Schema.ForeignKeyAttribute(" + String.Join("+\",\"+", foreignKey.PropertyPairs.Select(x => String.Format("nameof({0})", x.DependentProperty.Name))) + ")]\r\n");
         }
 
         if (this.context.EnableNamingAlias || IdentifierMappings.ContainsKey(originalPropertyName))
@@ -4841,7 +4831,7 @@ this.Write("Microsoft.OData.Client.Design.T4");
         this.Write(this.ToStringHelper.ToStringWithCulture(privatePropertyName));
 
         this.WriteLine(";\r\n            }\r\n            set\r\n            {");
-        if (String.IsNullOrWhiteSpace(foreignKeyField))
+        if (foreignKey == null)
         {
             this.WriteLine("                this.On{0}Changing(value);", this.ToStringHelper.ToStringWithCulture(propertyName));
             this.WriteLine("                this.{0} = value;", this.ToStringHelper.ToStringWithCulture(privatePropertyName));
@@ -4851,10 +4841,12 @@ this.Write("Microsoft.OData.Client.Design.T4");
         {
             // Allow On{FK}Changing to cancel the object change process as well.
             this.WriteLine("                this.On{0}Changing(value);", this.ToStringHelper.ToStringWithCulture(propertyName));
-            this.WriteLine("                this.On{0}Changing(value.{1});", this.ToStringHelper.ToStringWithCulture(foreignKeyField), this.ToStringHelper.ToStringWithCulture(fkPrincialField));
+            foreach(var reference in foreignKey.PropertyPairs)
+                this.WriteLine("                if(value != null) this.On{0}Changing(value.{1});", this.ToStringHelper.ToStringWithCulture(reference.DependentProperty.Name), this.ToStringHelper.ToStringWithCulture(reference.PrincipalProperty.Name));
             this.WriteLine("                this.{0} = value;", this.ToStringHelper.ToStringWithCulture(privatePropertyName));
             this.WriteLine("                this.On{0}Changed();", this.ToStringHelper.ToStringWithCulture(propertyName));
-            this.WriteLine("                this.{0} = value.{1};", this.ToStringHelper.ToStringWithCulture(foreignKeyField), this.ToStringHelper.ToStringWithCulture(fkPrincialField));
+            foreach (var reference in foreignKey.PropertyPairs)
+                this.WriteLine("                if(value != null) this.{0} = value.{1};", this.ToStringHelper.ToStringWithCulture(reference.DependentProperty.Name), this.ToStringHelper.ToStringWithCulture(reference.PrincipalProperty.Name));
         }
 
 
@@ -7335,7 +7327,7 @@ this.Write("\r\n        End Function\r\n");
 
     }
 
-    internal override void WritePropertyForStructuredType(string propertyType, string originalPropertyName, string propertyName, string fixedPropertyName, string privatePropertyName, string propertyInitializationValue, bool writeOnPropertyChanged, bool writeRequiredPropertyAttribute, int? maxPropertyDataLength, string foreignKeyField, string fkPrincialField)
+    internal override void WritePropertyForStructuredType(string propertyType, string originalPropertyName, string propertyName, string fixedPropertyName, string privatePropertyName, string propertyInitializationValue, bool writeOnPropertyChanged, bool writeRequiredPropertyAttribute, int? maxPropertyDataLength, Microsoft.OData.Edm.EdmReferentialConstraint foreignKey)
     {
 
 this.Write("        \'\'\'<summary>\r\n        \'\'\'There are no comments for Property ");
@@ -7376,9 +7368,9 @@ this.Write(" is required.\")>  _\r\n");
             this.Write(this.ToStringHelper.ToStringWithCulture(propertyName));
             this.Write(" must be less than " + maxPropertyDataLength + " characters.\")> _\r\n");
         }
-        if (!String.IsNullOrWhiteSpace(foreignKeyField))
+        if (foreignKey != null)
         {
-this.Write("        <global.System.ComponentModel.DataAnnotations.Schema.ForeignKeyAttribute(\"" + foreignKeyField + "\")> _\r\n");
+this.Write("        <global.System.ComponentModel.DataAnnotations.Schema.ForeignKeyAttribute(\"" + String.Join(",", foreignKey.PropertyPairs.Select(x => x.DependentProperty.Name)) + "\")> _\r\n");
         }
 
 this.Write("        Public Property ");
@@ -7395,7 +7387,7 @@ this.Write(this.ToStringHelper.ToStringWithCulture(privatePropertyName));
 
 this.Write("\r\n            End Get\r\n            Set\r\n");
 
-        if (String.IsNullOrWhiteSpace(foreignKeyField))
+        if (foreignKey == null)
         {
             this.WriteLine("                Me.On{0}Changing(value)", this.ToStringHelper.ToStringWithCulture(propertyName));
             this.WriteLine("                Me.{0} = value", this.ToStringHelper.ToStringWithCulture(privatePropertyName));
@@ -7405,10 +7397,12 @@ this.Write("\r\n            End Get\r\n            Set\r\n");
         {
             // Allow On{FK}Changing to cancel the object change process as well.
             this.WriteLine("                Me.On{0}Changing(value)", this.ToStringHelper.ToStringWithCulture(propertyName));
-            this.WriteLine("                Me.On{0}Changing(value.{1})", this.ToStringHelper.ToStringWithCulture(foreignKeyField), this.ToStringHelper.ToStringWithCulture(fkPrincialField));
+            foreach (var reference in foreignKey.PropertyPairs)
+                this.WriteLine("                if(value != null) \r\n                    Me.On{0}Changing(value.{1}) \r\n                End If", this.ToStringHelper.ToStringWithCulture(reference.DependentProperty.Name), this.ToStringHelper.ToStringWithCulture(reference.PrincipalProperty.Name));
             this.WriteLine("                Me.{0} = value", this.ToStringHelper.ToStringWithCulture(privatePropertyName));
             this.WriteLine("                Me.On{0}Changed()", this.ToStringHelper.ToStringWithCulture(propertyName));
-            this.WriteLine("                Me.{0} = value.{1}", this.ToStringHelper.ToStringWithCulture(foreignKeyField), this.ToStringHelper.ToStringWithCulture(fkPrincialField));
+            foreach (var reference in foreignKey.PropertyPairs)
+                this.WriteLine("                if(value != null) \r\n                    Me.{0} = value.{1} \r\n                End If", this.ToStringHelper.ToStringWithCulture(reference.DependentProperty.Name), this.ToStringHelper.ToStringWithCulture(reference.PrincipalProperty.Name));
         }
 
         if (writeOnPropertyChanged)

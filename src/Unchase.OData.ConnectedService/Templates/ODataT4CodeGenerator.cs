@@ -4831,36 +4831,33 @@ this.Write("Microsoft.OData.Client.Design.T4");
         this.Write(this.ToStringHelper.ToStringWithCulture(privatePropertyName));
 
         this.WriteLine(";\r\n            }\r\n            set\r\n            {");
+        this.WriteLine("            if (this.{0} != value)\r\n            {{", this.ToStringHelper.ToStringWithCulture(privatePropertyName));
         if (foreignKey == null)
         {
-            this.WriteLine("                this.On{0}Changing(value);", this.ToStringHelper.ToStringWithCulture(propertyName));
-            this.WriteLine("                this.{0} = value;", this.ToStringHelper.ToStringWithCulture(privatePropertyName));
-            this.WriteLine("                this.On{0}Changed();", this.ToStringHelper.ToStringWithCulture(propertyName));
+            this.WriteLine("                    this.On{0}Changing(value);", this.ToStringHelper.ToStringWithCulture(propertyName));
+            this.WriteLine("                    this.{0} = value;", this.ToStringHelper.ToStringWithCulture(privatePropertyName));
+            this.WriteLine("                    this.On{0}Changed();", this.ToStringHelper.ToStringWithCulture(propertyName));
         }
         else
         {
             // Allow On{FK}Changing to cancel the object change process as well.
-            this.WriteLine("                this.On{0}Changing(value);", this.ToStringHelper.ToStringWithCulture(propertyName));
+            this.WriteLine("                    this.On{0}Changing(value);", this.ToStringHelper.ToStringWithCulture(propertyName));
             foreach(var reference in foreignKey.PropertyPairs)
-                this.WriteLine("                if(value != null) this.On{0}Changing(value.{1});", this.ToStringHelper.ToStringWithCulture(reference.DependentProperty.Name), this.ToStringHelper.ToStringWithCulture(reference.PrincipalProperty.Name));
-            this.WriteLine("                this.{0} = value;", this.ToStringHelper.ToStringWithCulture(privatePropertyName));
-            this.WriteLine("                this.On{0}Changed();", this.ToStringHelper.ToStringWithCulture(propertyName));
+                this.WriteLine("                    if(value != null) this.On{0}Changing(value.{1});", this.ToStringHelper.ToStringWithCulture(reference.DependentProperty.Name), this.ToStringHelper.ToStringWithCulture(reference.PrincipalProperty.Name));
+            this.WriteLine("                    this.{0} = value;", this.ToStringHelper.ToStringWithCulture(privatePropertyName));
+            this.WriteLine("                    this.On{0}Changed();", this.ToStringHelper.ToStringWithCulture(propertyName));
             foreach (var reference in foreignKey.PropertyPairs)
-                this.WriteLine("                if(value != null) this.{0} = value.{1};", this.ToStringHelper.ToStringWithCulture(reference.DependentProperty.Name), this.ToStringHelper.ToStringWithCulture(reference.PrincipalProperty.Name));
+                this.WriteLine("                    if(value != null) this.{0} = value.{1};", this.ToStringHelper.ToStringWithCulture(reference.DependentProperty.Name), this.ToStringHelper.ToStringWithCulture(reference.PrincipalProperty.Name));
         }
-
 
         if (writeOnPropertyChanged)
         {
-
-            this.Write("                this.OnPropertyChanged(\"");
-
+            this.Write("                    this.OnPropertyChanged(\"");
             this.Write(this.ToStringHelper.ToStringWithCulture(originalPropertyName));
-
             this.Write("\");\r\n");
-
-
         }
+
+        this.WriteLine("            }");
 
         this.Write("            }\r\n        }\r\n        [global::System.CodeDom.Compiler.GeneratedCodeA" +
                 "ttribute(\"Microsoft.OData.Client.Design.T4\", \"");
@@ -4896,6 +4893,20 @@ this.Write("Microsoft.OData.Client.Design.T4");
 
     internal override void WriteINotifyPropertyChangedImplementation()
     {
+        this.Write(@"
+/// <summary>
+/// Provided for external callers to raise the INotifyPropertyChanged event for force UI bindings to re-evaluate
+/// </summary>
+/// <remarks>Necessary because change events now only fire if the value actually changes</remarks>
+/// <param name=""propertyName"">name of the property to raise the event for</param>");
+        WriteGeneratedCodeAttribute();
+        this.Write(@"
+public void RaisePropertyChanged(string propertyName)
+{
+    if(global::System.String.IsNullOrWhiteSpace(propertyName)) throw new global::System.ArgumentNullException(nameof(propertyName));
+    this.OnPropertyChanged(propertyName);
+}
+");
         if (!this.context.UseAsyncDataServiceCollection)
         {
             this.Write("        /// <summary>\r\n        /// This event is raised when the value of the pro" +
@@ -4904,24 +4915,23 @@ this.Write("Microsoft.OData.Client.Design.T4");
 
             this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
 
-            this.Write(@""")]
+                    this.Write(@""")]
 public event global::System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
 /// <summary>
-/// The value of the property is changed
+/// The value of the property is changed, raise INotifyPropertyChanged event
 /// </summary>
-/// <param name=""property"">property name</param>
-[global::System.CodeDom.Compiler.GeneratedCodeAttribute(""Microsoft.OData.Client.Design.T4"", """);
+/// <param name=""property"">property name</param>");
+            WriteGeneratedCodeAttribute();
 
-            this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
 
-            this.Write(@""")]
+            this.Write(@"
 protected virtual void OnPropertyChanged([global::System.Runtime.CompilerServices.CallerMemberName] string property = null)
 {
     this.PropertyChanged?.Invoke(this, new global::System.ComponentModel.PropertyChangedEventArgs(property));
 }
 ");
-        }
-        else
+                }
+                else
         {
             // based on implementation from https://stackoverflow.com/a/45422891/1690217
             // In environments that do not support async binding operations natively...

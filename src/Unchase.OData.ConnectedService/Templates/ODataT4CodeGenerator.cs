@@ -3676,7 +3676,7 @@ public sealed class ODataClientCSharpTemplate : ODataClientTemplate
     internal override string DataServiceActionQueryTypeName => "global::Microsoft.OData.Client.DataServiceActionQuery";
     internal override string DataServiceActionQuerySingleOfTStructureTemplate => "global::Microsoft.OData.Client.DataServiceActionQuerySingle<{0}>";
     internal override string DataServiceActionQueryOfTStructureTemplate => "global::Microsoft.OData.Client.DataServiceActionQuery<{0}>";
-    internal override string NotifyPropertyChangedModifier => "global::System.ComponentModel.INotifyPropertyChanged";
+    internal override string NotifyPropertyChangedModifier => "global::System.ComponentModel.INotifyPropertyChanged, global::System.ComponentModel.IChangeTracking, global::System.Runtime.Serialization.IDeserializationCallback";
     internal override string ClassInheritMarker => " : ";
     internal override string ParameterSeparator => ", \r\n                    ";
     internal override string KeyParameterSeparator => ", \r\n            ";
@@ -4809,13 +4809,9 @@ this.Write("Microsoft.OData.Client.Design.T4");
 
         if (this.context.EnableNamingAlias || IdentifierMappings.ContainsKey(originalPropertyName))
         {
-
             this.Write("        [global::Microsoft.OData.Client.OriginalNameAttribute(\"");
-
             this.Write(this.ToStringHelper.ToStringWithCulture(originalPropertyName));
-
             this.Write("\")]\r\n");
-
         }
 
         this.Write("        public ");
@@ -4831,7 +4827,7 @@ this.Write("Microsoft.OData.Client.Design.T4");
         this.Write(this.ToStringHelper.ToStringWithCulture(privatePropertyName));
 
         this.WriteLine(";\r\n            }\r\n            set\r\n            {");
-        this.WriteLine("            if (this.{0} != value)\r\n            {{", this.ToStringHelper.ToStringWithCulture(privatePropertyName));
+        this.WriteLine("                if (this.{0} != value)\r\n                {{", this.ToStringHelper.ToStringWithCulture(privatePropertyName));
         if (foreignKey == null)
         {
             this.WriteLine("                    this.On{0}Changing(value);", this.ToStringHelper.ToStringWithCulture(propertyName));
@@ -4852,12 +4848,13 @@ this.Write("Microsoft.OData.Client.Design.T4");
 
         if (writeOnPropertyChanged)
         {
+            this.WriteLine("                    this.SetChanged();");
             this.Write("                    this.OnPropertyChanged(\"");
             this.Write(this.ToStringHelper.ToStringWithCulture(originalPropertyName));
             this.Write("\");\r\n");
         }
 
-        this.WriteLine("            }");
+        this.WriteLine("                }");
 
         this.Write("            }\r\n        }\r\n        [global::System.CodeDom.Compiler.GeneratedCodeA" +
                 "ttribute(\"Microsoft.OData.Client.Design.T4\", \"");
@@ -4888,25 +4885,101 @@ this.Write("Microsoft.OData.Client.Design.T4");
 
         this.Write("Changed();\r\n");
 
-
     }
 
     internal override void WriteINotifyPropertyChangedImplementation()
     {
+        // Write the 'HasChanges' implementation
         this.Write(@"
-/// <summary>
-/// Provided for external callers to raise the INotifyPropertyChanged event for force UI bindings to re-evaluate
-/// </summary>
-/// <remarks>Necessary because change events now only fire if the value actually changes</remarks>
-/// <param name=""propertyName"">name of the property to raise the event for</param>");
-        WriteGeneratedCodeAttribute();
-        this.Write(@"
-public void RaisePropertyChanged(string propertyName)
-{
-    if(global::System.String.IsNullOrWhiteSpace(propertyName)) throw new global::System.ArgumentNullException(nameof(propertyName));
-    this.OnPropertyChanged(propertyName);
-}
+        #region IChangeTracking
 ");
+
+        this.Write(@"
+        private bool _isChanged = false;
+        /// <summary>
+        /// IChangeTracking Notification that this record has changed since the graph was hydrated 
+        /// </summary>
+        /// <remarks>Helpful because change events now only fire if the value actually changes, so we can do a shallow check to determine if there is potential changes to send back to the server</remarks>
+        /// <param name=""propertyName"">name of the property to raise the event for</param>");
+        this.WriteGeneratedCodeAttribute();
+        this.Write(@"
+        public bool IsChanged
+        {
+            get => _isChanged;
+        }
+        protected void SetChanged()
+        {
+            if(!_isChanged)
+            {
+                _isChanged = true;
+                OnPropertyChanged(nameof(IsChanged));
+            }
+        }
+");
+
+        this.Write(@"
+        /// <summary>
+        /// Resets the object’s state to unchanged by accepting the modifications.
+        /// </summary>");
+        this.WriteGeneratedCodeAttribute();
+        this.Write(@"
+        public void AcceptChanges()
+        {
+            if(_isChanged)
+            {
+                _isChanged = false;
+                OnPropertyChanged(nameof(IsChanged));
+            }
+        }
+");
+
+        this.Write(@"
+        /// <summary>
+        /// Post process this object after De-Serialization, accept the changes automatically so the record is in the unchanged state
+        /// </summary>
+        /// <remarks>This endpoint is obeyed by JSON.Net and DataContractSerializer and XmlSerializer</remarks>");
+        this.WriteGeneratedCodeAttribute();
+        this.Write(@"
+        [global::System.Runtime.Serialization.OnDeserialized]
+        private void OnDeserialized(global::System.Runtime.Serialization.StreamingContext context)
+        {
+            AcceptChanges();
+        }");
+
+        this.Write(@"
+        /// <summary>
+        /// Post process this object after De-Serialization, accept the changes automatically so the record is in the unchanged state
+        /// </summary>
+        /// <remarks>This endpoint is obeyed by dataContext.Configurations.ResponsePipeline.OnEntityMaterialized</remarks>");
+        this.WriteGeneratedCodeAttribute();
+        this.Write(@"
+        void global::System.Runtime.Serialization.IDeserializationCallback.OnDeserialization(global::System.Object sender)
+        {
+            AcceptChanges();
+        }");
+
+        this.Write(@"
+        #endregion IChangeTracking
+");
+
+        // Write INotifyPropertyChanged implementations
+        this.Write(@"
+        #region INotifyPropertyChanged
+");
+        this.Write(@"
+        /// <summary>
+        /// Provided for external callers to raise the INotifyPropertyChanged event for force UI bindings to re-evaluate
+        /// </summary>
+        /// <remarks>Necessary because change events now only fire if the value actually changes</remarks>
+        /// <param name=""propertyName"">name of the property to raise the event for</param>");
+        this.Write(@"
+        public void RaisePropertyChanged(string propertyName)
+        {
+            if(global::System.String.IsNullOrWhiteSpace(propertyName)) throw new global::System.ArgumentNullException(nameof(propertyName));
+            this.OnPropertyChanged(propertyName);
+        }
+");
+
         if (!this.context.UseAsyncDataServiceCollection)
         {
             this.Write("        /// <summary>\r\n        /// This event is raised when the value of the pro" +
@@ -4916,19 +4989,19 @@ public void RaisePropertyChanged(string propertyName)
             this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
 
                     this.Write(@""")]
-public event global::System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
-/// <summary>
-/// The value of the property is changed, raise INotifyPropertyChanged event
-/// </summary>
-/// <param name=""property"">property name</param>");
+        public event global::System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
+        /// <summary>
+        /// The value of the property is changed, raise INotifyPropertyChanged event
+        /// </summary>
+        /// <param name=""property"">property name</param>");
             WriteGeneratedCodeAttribute();
 
 
             this.Write(@"
-protected virtual void OnPropertyChanged([global::System.Runtime.CompilerServices.CallerMemberName] string property = null)
-{
-    this.PropertyChanged?.Invoke(this, new global::System.ComponentModel.PropertyChangedEventArgs(property));
-}
+        protected virtual void OnPropertyChanged([global::System.Runtime.CompilerServices.CallerMemberName] string property = null)
+        {
+            this.PropertyChanged?.Invoke(this, new global::System.ComponentModel.PropertyChangedEventArgs(property));
+        }
 ");
                 }
                 else
@@ -4945,7 +5018,7 @@ protected virtual void OnPropertyChanged([global::System.Runtime.CompilerService
             this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
 
             this.Write(@""")]
-private readonly global::System.Collections.Generic.List<(global::System.Threading.SynchronizationContext context, global::System.ComponentModel.PropertyChangedEventHandler handler)> _handlers = new global::System.Collections.Generic.List<(global::System.Threading.SynchronizationContext context, global::System.ComponentModel.PropertyChangedEventHandler handler)>();
+        private readonly global::System.Collections.Generic.List<(global::System.Threading.SynchronizationContext context, global::System.ComponentModel.PropertyChangedEventHandler handler)> _handlers = new global::System.Collections.Generic.List<(global::System.Threading.SynchronizationContext context, global::System.ComponentModel.PropertyChangedEventHandler handler)>();
 ");
 
             this.Write("        /// <summary>\r\n        /// This event is raised when the value of the pro" +
@@ -4953,67 +5026,71 @@ private readonly global::System.Collections.Generic.List<(global::System.Threadi
                     "er.GeneratedCodeAttribute(\"Microsoft.OData.Client.Design.T4\", \"");
             this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
             this.Write(@""")]
-public event global::System.ComponentModel.PropertyChangedEventHandler PropertyChanged
-{
-    add => _handlers.Add((global::System.Threading.SynchronizationContext.Current, value));
-    remove
-    {
-        var i = 0;
-        foreach (var item in _handlers)
+        public event global::System.ComponentModel.PropertyChangedEventHandler PropertyChanged
         {
-            if (item.handler.Equals(value))
+            add => _handlers.Add((global::System.Threading.SynchronizationContext.Current, value));
+            remove
             {
-                _handlers.RemoveAt(i);
-                break;
+                var i = 0;
+                foreach (var item in _handlers)
+                {
+                    if (item.handler.Equals(value))
+                    {
+                        _handlers.RemoveAt(i);
+                        break;
+                    }
+                    i++;
+                }
             }
-            i++;
         }
-    }
-}
 ");
 
             this.Write(@"        /// <summary>
-/// The value of the property is changed
-/// </summary>
-/// <param name=""property"">property name</param>
-[global::System.CodeDom.Compiler.GeneratedCodeAttribute(""Microsoft.OData.Client.Design.T4"", """);
+        /// The value of the property is changed
+        /// </summary>
+        /// <param name=""property"">property name</param>
+        [global::System.CodeDom.Compiler.GeneratedCodeAttribute(""Microsoft.OData.Client.Design.T4"", """);
 
             this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
             this.Write(@""")]
-protected global::System.Threading.Tasks.Task OnPropertyChanged([global::System.Runtime.CompilerServices.CallerMemberName] string property = null)
-{
-    var args = new global::System.ComponentModel.PropertyChangedEventArgs(property);
-    var tasks = _handlers
-        .GroupBy(x => x.context, x => x.handler)
-        .Select(g => invokeContext(g.Key, g));
-    return global::System.Threading.Tasks.Task.WhenAll(tasks);
+        protected global::System.Threading.Tasks.Task OnPropertyChanged([global::System.Runtime.CompilerServices.CallerMemberName] string property = null)
+        {
+            var args = new global::System.ComponentModel.PropertyChangedEventArgs(property);
+            var tasks = _handlers
+                .GroupBy(x => x.context, x => x.handler)
+                .Select(g => invokeContext(g.Key, g));
+            return global::System.Threading.Tasks.Task.WhenAll(tasks);
 
-    global::System.Threading.Tasks.Task invokeContext(global::System.Threading.SynchronizationContext context, global::System.Collections.Generic.IEnumerable<global::System.ComponentModel.PropertyChangedEventHandler> l)
-    {
-        if (context != null)
-        {
-            var tcs = new global::System.Threading.Tasks.TaskCompletionSource<bool>();
-            context.Post(o =>
+            global::System.Threading.Tasks.Task invokeContext(global::System.Threading.SynchronizationContext context, global::System.Collections.Generic.IEnumerable<global::System.ComponentModel.PropertyChangedEventHandler> l)
             {
-                try { invokeHandlers(l); tcs.TrySetResult(true); }
-                catch (global::System.Exception e) { tcs.TrySetException(e); }
-            }, null);
-            return tcs.Task;
+                if (context != null)
+                {
+                    var tcs = new global::System.Threading.Tasks.TaskCompletionSource<bool>();
+                    context.Post(o =>
+                    {
+                        try { invokeHandlers(l); tcs.TrySetResult(true); }
+                        catch (global::System.Exception e) { tcs.TrySetException(e); }
+                    }, null);
+                    return tcs.Task;
+                }
+                else
+                {
+                    return global::System.Threading.Tasks.Task.Run(() => invokeHandlers(l));
+                }
+            }
+            void invokeHandlers(global::System.Collections.Generic.IEnumerable<global::System.ComponentModel.PropertyChangedEventHandler> l)
+            {
+                foreach (var h in l)
+                    h(this, args);
+            }
         }
-        else
-        {
-            return global::System.Threading.Tasks.Task.Run(() => invokeHandlers(l));
-        }
-    }
-    void invokeHandlers(global::System.Collections.Generic.IEnumerable<global::System.ComponentModel.PropertyChangedEventHandler> l)
-    {
-        foreach (var h in l)
-            h(this, args);
-    }
-}
 ");
 
         }
+
+        this.Write(@"
+#endregion INotifyPropertyChanged
+");
 
     }
 

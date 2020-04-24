@@ -3112,7 +3112,7 @@ public abstract class TemplateBase
 /// </summary>
 internal sealed class UniqueIdentifierService
 {
-    // This is the list of keywords we check against when creating parameter names from propert. 
+    // This is the list of keywords we check against when creating parameter names from property. 
     // If a name matches this keyword we prefix it.
     private static readonly string[] Keywords = new string[] {"class", "event"};
 
@@ -3676,7 +3676,7 @@ public sealed class ODataClientCSharpTemplate : ODataClientTemplate
     internal override string DataServiceActionQueryTypeName => "global::Microsoft.OData.Client.DataServiceActionQuery";
     internal override string DataServiceActionQuerySingleOfTStructureTemplate => "global::Microsoft.OData.Client.DataServiceActionQuerySingle<{0}>";
     internal override string DataServiceActionQueryOfTStructureTemplate => "global::Microsoft.OData.Client.DataServiceActionQuery<{0}>";
-    internal override string NotifyPropertyChangedModifier => "global::System.ComponentModel.INotifyPropertyChanged, global::System.ComponentModel.IChangeTracking, global::System.Runtime.Serialization.IDeserializationCallback";
+    internal override string NotifyPropertyChangedModifier => "global::System.ComponentModel.INotifyPropertyChanged, global::System.ComponentModel.IRevertibleChangeTracking, global::System.Runtime.Serialization.IDeserializationCallback";
     internal override string ClassInheritMarker => " : ";
     internal override string ParameterSeparator => ", \r\n                    ";
     internal override string KeyParameterSeparator => ", \r\n            ";
@@ -4623,29 +4623,28 @@ this.Write("Microsoft.OData.Client.Design.T4");
     {
         if (this.context.EnableNamingAlias)
         {
-
             this.Write("    [global::Microsoft.OData.Client.OriginalNameAttribute(\"");
-
             this.Write(this.ToStringHelper.ToStringWithCulture(originalTypeName));
-
             this.Write("\")]\r\n");
-
-
         }
 
         this.Write("    public");
-
         this.Write(this.ToStringHelper.ToStringWithCulture(abstractModifier));
-
         this.Write(" partial class ");
-
         this.Write(this.ToStringHelper.ToStringWithCulture(typeName));
-
         this.Write(this.ToStringHelper.ToStringWithCulture(baseTypeName));
-
         this.Write("\r\n    {\r\n");
 
+        if (this.context.UseDataServiceCollection && baseTypeName.Contains("IRevertibleChangeTracking"))
+        {
+            this.Write($@"        protected readonly ChangeTracker __Values;
+        public {this.ToStringHelper.ToStringWithCulture(typeName)}()
+        {{
+            __Values = new ChangeTracker(RaisePropertyChanged, SetChanged);
+        }}
+");
 
+        }
     }
 
     internal override void WriteSummaryCommentForStaticCreateMethod(string typeName)
@@ -4822,16 +4821,17 @@ this.Write("Microsoft.OData.Client.Design.T4");
 
         this.Write(this.ToStringHelper.ToStringWithCulture(fixedPropertyName));
 
-        this.Write("\r\n        {\r\n            get\r\n            {\r\n                return this.");
+        this.Write("\r\n        {\r\n            get\r\n            {\r\n                return this.__Values.Get(ref this.");
 
         this.Write(this.ToStringHelper.ToStringWithCulture(privatePropertyName));
 
-        this.WriteLine(";\r\n            }\r\n            set\r\n            {");
-        this.WriteLine("                if (this.{0} != value)\r\n                {{", this.ToStringHelper.ToStringWithCulture(privatePropertyName));
+        this.WriteLine(");\r\n            }\r\n            set\r\n            {");
+        this.WriteLine("                this.__Values.EnsureField(ref {0});", this.ToStringHelper.ToStringWithCulture(privatePropertyName));
+        this.WriteLine("                if (!this.{0}.Equals(this.{0}.GetValue(), value))\r\n                {{", this.ToStringHelper.ToStringWithCulture(privatePropertyName));
         if (foreignKey == null)
         {
             this.WriteLine("                    this.On{0}Changing(value);", this.ToStringHelper.ToStringWithCulture(propertyName));
-            this.WriteLine("                    this.{0} = value;", this.ToStringHelper.ToStringWithCulture(privatePropertyName));
+            this.WriteLine("                    this.{0}.SetValue(value);", this.ToStringHelper.ToStringWithCulture(privatePropertyName));
             this.WriteLine("                    this.On{0}Changed();", this.ToStringHelper.ToStringWithCulture(propertyName));
         }
         else
@@ -4840,7 +4840,7 @@ this.Write("Microsoft.OData.Client.Design.T4");
             this.WriteLine("                    this.On{0}Changing(value);", this.ToStringHelper.ToStringWithCulture(propertyName));
             foreach(var reference in foreignKey.PropertyPairs)
                 this.WriteLine("                    if(value != null) this.On{0}Changing(value.{1});", this.ToStringHelper.ToStringWithCulture(reference.DependentProperty.Name), this.ToStringHelper.ToStringWithCulture(reference.PrincipalProperty.Name));
-            this.WriteLine("                    this.{0} = value;", this.ToStringHelper.ToStringWithCulture(privatePropertyName));
+            this.WriteLine("                    this.{0}.SetValue(value);", this.ToStringHelper.ToStringWithCulture(privatePropertyName));
             this.WriteLine("                    this.On{0}Changed();", this.ToStringHelper.ToStringWithCulture(propertyName));
             foreach (var reference in foreignKey.PropertyPairs)
                 this.WriteLine("                    if(value != null) this.{0} = value.{1};", this.ToStringHelper.ToStringWithCulture(reference.DependentProperty.Name), this.ToStringHelper.ToStringWithCulture(reference.PrincipalProperty.Name));
@@ -4848,10 +4848,11 @@ this.Write("Microsoft.OData.Client.Design.T4");
 
         if (writeOnPropertyChanged)
         {
-            this.WriteLine("                    this.SetChanged();");
-            this.Write("                    this.OnPropertyChanged(\"");
-            this.Write(this.ToStringHelper.ToStringWithCulture(originalPropertyName));
-            this.Write("\");\r\n");
+            // CS: Calling SetValue above handles the value changed events automatically.
+            //this.WriteLine("                    this.SetChanged();");
+            //this.Write("                    this.OnPropertyChanged(\"");
+            //this.Write(this.ToStringHelper.ToStringWithCulture(originalPropertyName));
+            //this.Write("\");\r\n");
         }
 
         this.WriteLine("                }");
@@ -4861,17 +4862,19 @@ this.Write("Microsoft.OData.Client.Design.T4");
 
         this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
 
-        this.Write("\")]\r\n        private ");
-
+        this.Write("\")]\r\n        private ValueTracker<");
         this.Write(this.ToStringHelper.ToStringWithCulture(propertyType));
-
-        this.Write(" ");
+        this.Write("> ");
 
         this.Write(this.ToStringHelper.ToStringWithCulture(privatePropertyName));
 
-        this.Write(this.ToStringHelper.ToStringWithCulture(propertyInitializationValue != null ? " = " + propertyInitializationValue : string.Empty));
+        this.Write(" = new ValueTracker<");
+        this.Write(this.ToStringHelper.ToStringWithCulture(propertyType));
+        this.Write(">(");
 
-        this.Write(";\r\n        partial void On");
+        this.Write(this.ToStringHelper.ToStringWithCulture(propertyInitializationValue != null ? propertyInitializationValue : string.Empty));
+
+        this.Write(");\r\n        partial void On");
 
         this.Write(this.ToStringHelper.ToStringWithCulture(propertyName));
 
@@ -4887,15 +4890,16 @@ this.Write("Microsoft.OData.Client.Design.T4");
 
     }
 
+
     internal override void WriteINotifyPropertyChangedImplementation()
     {
         // Write the 'HasChanges' implementation
         this.Write(@"
-        #region IChangeTracking
+        #region IChangeTracking, IRevertibleChangeTracking
 ");
 
         this.Write(@"
-        private bool _isChanged = false;
+        private bool __isChanged = false;
         /// <summary>
         /// IChangeTracking Notification that this record has changed since the graph was hydrated 
         /// </summary>
@@ -4905,13 +4909,23 @@ this.Write("Microsoft.OData.Client.Design.T4");
         this.Write(@"
         public bool IsChanged
         {
-            get => _isChanged;
+            get => __isChanged;
         }
-        protected void SetChanged()
+        /// <summary>
+        /// Internally update the IsChanged state, this method handles a singleton change notification for the <see cref=""IsChanged""/> property.
+        /// </summary>
+        /// <param name=""isChanged""></param>
+        protected void SetChanged(bool isChanged = true)
         {
-            if(!_isChanged)
+            if(!isChanged)
             {
-                _isChanged = true;
+                // we have to re-evaluate the collection in this case
+                isChanged = __Values.IsChanged;
+            }
+
+            if (!__isChanged)
+            {
+                __isChanged = true;
                 OnPropertyChanged(nameof(IsChanged));
             }
         }
@@ -4925,11 +4939,7 @@ this.Write("Microsoft.OData.Client.Design.T4");
         this.Write(@"
         public void AcceptChanges()
         {
-            if(_isChanged)
-            {
-                _isChanged = false;
-                OnPropertyChanged(nameof(IsChanged));
-            }
+            __Values.AcceptChanges();
         }
 ");
 
@@ -4961,7 +4971,17 @@ this.Write("Microsoft.OData.Client.Design.T4");
         this.Write(@"
         #endregion IChangeTracking
 ");
+        // Write IRevertibleChangeTracking implementations
+        this.Write(@"
+        #region IRevertibleChangeTracking
 
+        public void RejectChanges()
+        {
+            this.__Values.RejectChanges();
+        }
+
+        #endregion IRevertibleChangeTracking
+");
         // Write INotifyPropertyChanged implementations
         this.Write(@"
         #region INotifyPropertyChanged

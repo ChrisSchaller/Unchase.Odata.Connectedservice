@@ -4923,9 +4923,9 @@ this.Write("Microsoft.OData.Client.Design.T4");
                 isChanged = __Values.IsChanged;
             }
 
-            if (!__isChanged)
+            if (__isChanged != IsChanged)
             {
-                __isChanged = true;
+                __isChanged = IsChanged;
                 OnPropertyChanged(nameof(IsChanged));
             }
         }

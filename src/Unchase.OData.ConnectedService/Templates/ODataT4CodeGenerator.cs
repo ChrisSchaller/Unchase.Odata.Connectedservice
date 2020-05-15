@@ -2923,7 +2923,7 @@ public abstract class TemplateBase
     [System.Diagnostics.Conditional("DEBUG")]
     public void LaunchDebugger()
     {
-        System.Diagnostics.Debugger.Launch();
+        //System.Diagnostics.Debugger.Launch();
     }
 
 #endregion Transform-time Debugging Helpers
@@ -4633,6 +4633,8 @@ this.Write("Microsoft.OData.Client.Design.T4");
         this.Write(" partial class ");
         this.Write(this.ToStringHelper.ToStringWithCulture(typeName));
         this.Write(this.ToStringHelper.ToStringWithCulture(baseTypeName));
+        if (this.context.UseDataServiceCollection && baseTypeName.Contains("IRevertibleChangeTracking"))
+            this.Write($", IHasChanged<{this.ToStringHelper.ToStringWithCulture(typeName)}>");
         this.Write("\r\n    {\r\n");
 
         if (this.context.UseDataServiceCollection && baseTypeName.Contains("IRevertibleChangeTracking"))
@@ -4640,12 +4642,12 @@ this.Write("Microsoft.OData.Client.Design.T4");
             this.Write($@"        #region IHasChanged
         ChangeTracker IHasChanged.Values {{ get => __Values; }}
         protected readonly ChangeTracker __Values;
-        bool IHasChanged.HasChanged<T, TProperty>(global::System.Linq.Expressions.Expression<global::System.Func<T, TProperty>> propertyExpression)
+        public bool HasChanged<TProperty>(global::System.Linq.Expressions.Expression<global::System.Func<{this.ToStringHelper.ToStringWithCulture(typeName)}, TProperty>> propertyExpression)
         {{
             var name = SDSS.ExpressionExtensions.MemberName(propertyExpression);
             return this.__Values.TryGetValue(name, out IValueTracker t) && t.IsChanged;
         }}
-        bool IHasChanged.HasChanged(string propertyName)
+        public bool HasChanged(string propertyName)
         {{
             return this.__Values.TryGetValue(propertyName, out IValueTracker t) && t.IsChanged;
         }}

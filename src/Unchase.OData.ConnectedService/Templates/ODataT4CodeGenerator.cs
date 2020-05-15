@@ -3676,7 +3676,7 @@ public sealed class ODataClientCSharpTemplate : ODataClientTemplate
     internal override string DataServiceActionQueryTypeName => "global::Microsoft.OData.Client.DataServiceActionQuery";
     internal override string DataServiceActionQuerySingleOfTStructureTemplate => "global::Microsoft.OData.Client.DataServiceActionQuerySingle<{0}>";
     internal override string DataServiceActionQueryOfTStructureTemplate => "global::Microsoft.OData.Client.DataServiceActionQuery<{0}>";
-    internal override string NotifyPropertyChangedModifier => "global::System.ComponentModel.INotifyPropertyChanged, global::System.ComponentModel.IRevertibleChangeTracking, global::System.Runtime.Serialization.IDeserializationCallback";
+    internal override string NotifyPropertyChangedModifier => "global::System.ComponentModel.INotifyPropertyChanged, global::System.ComponentModel.IRevertibleChangeTracking, global::System.Runtime.Serialization.IDeserializationCallback, IHasChanged";
     internal override string ClassInheritMarker => " : ";
     internal override string ParameterSeparator => ", \r\n                    ";
     internal override string KeyParameterSeparator => ", \r\n            ";
@@ -4637,7 +4637,20 @@ this.Write("Microsoft.OData.Client.Design.T4");
 
         if (this.context.UseDataServiceCollection && baseTypeName.Contains("IRevertibleChangeTracking"))
         {
-            this.Write($@"        protected readonly ChangeTracker __Values;
+            this.Write($@"        #region IHasChanged
+        ChangeTracker IHasChanged.Values {{ get => __Values; }}
+        protected readonly ChangeTracker __Values;
+        bool IHasChanged.HasChanged<T, TProperty>(global::System.Linq.Expressions.Expression<global::System.Func<T, TProperty>> propertyExpression)
+        {{
+            var name = SDSS.ExpressionExtensions.MemberName(propertyExpression);
+            return this.__Values.TryGetValue(name, out IValueTracker t) && t.IsChanged;
+        }}
+        bool IHasChanged.HasChanged(string propertyName)
+        {{
+            return this.__Values.TryGetValue(propertyName, out IValueTracker t) && t.IsChanged;
+        }}
+        #endregion IHasChanged
+
         public {this.ToStringHelper.ToStringWithCulture(typeName)}()
         {{
             __Values = new ChangeTracker(RaisePropertyChanged, SetChanged);
@@ -4848,11 +4861,10 @@ this.Write("Microsoft.OData.Client.Design.T4");
 
         if (writeOnPropertyChanged)
         {
-            // CS: Calling SetValue above handles the value changed events automatically.
+            // CS: Calling SetValue above handles the IsChanged events automatically.
             //this.WriteLine("                    this.SetChanged();");
-            //this.Write("                    this.OnPropertyChanged(\"");
-            //this.Write(this.ToStringHelper.ToStringWithCulture(originalPropertyName));
-            //this.Write("\");\r\n");
+            // CS: But we still need to Raise PropertyChanged, especially when the value reverts back to unchanged state.
+            this.Write("                    this.OnPropertyChanged();\r\n");
         }
 
         this.WriteLine("                }");

@@ -1360,7 +1360,7 @@ public abstract class ODataClientTemplate : TemplateBase
     internal abstract void WriteParameterNullCheckForStaticCreateMethod(string parameterName);
     internal abstract void WritePropertyValueAssignmentForStaticCreateMethod(string instanceName, string propertyName, string parameterName);
     internal abstract void WriteMethodEndForStaticCreateMethod(string instanceName);
-    internal abstract void WritePropertyForStructuredType(string propertyType, string originalPropertyName, string propertyName, string fixedPropertyName, string privatePropertyName, string propertyInitializationValue, bool writeOnPropertyChanged, bool writeRequiredPropertyAttribute, int? maxPropertyDataLength);
+    internal abstract void WritePropertyForStructuredType(string propertyType, string originalPropertyName, string propertyName, string fixedPropertyName, string privatePropertyName, string propertyInitializationValue, bool writeOnPropertyChanged, bool writeRequiredPropertyAttribute, int? maxPropertyDataLength, Microsoft.OData.Edm.EdmReferentialConstraint foreignKey);
     internal abstract void WriteINotifyPropertyChangedImplementation();
     internal abstract void WriteClassEndForStructuredType();
     internal abstract void WriteNamespaceEnd();
@@ -2637,6 +2637,13 @@ public abstract class ODataClientTemplate : TemplateBase
                 maxLength = isUnbounded ? -1 : (int?)csdlTypeElement.GetType().GetProperty("MaxLength")?.GetValue(csdlTypeElement);
             }
 
+            // try to extract foreignKey info
+            Microsoft.OData.Edm.EdmReferentialConstraint foreignKey = null;
+            if (property.PropertyKind == EdmPropertyKind.Navigation)
+            {
+                foreignKey = property.GetType().GetProperty("ReferentialConstraint")?.GetValue(property) as Microsoft.OData.Edm.EdmReferentialConstraint;
+            }
+
             return new
                 {
                     PropertyType = Utils.GetClrTypeName(property.Type, useDataServiceCollection, this, this.context),
@@ -2646,7 +2653,8 @@ public abstract class ODataClientTemplate : TemplateBase
                     PrivatePropertyName = "_" + propertyName,
                     PropertyInitializationValue = Utils.GetPropertyInitializationValue(property, useDataServiceCollection, this, this.context),
                     Required = false,
-                    MaxLength = maxLength
+                    MaxLength = maxLength,
+                    ForeignKey = foreignKey
                 };
         }).ToList();
 
@@ -2661,7 +2669,8 @@ public abstract class ODataClientTemplate : TemplateBase
                 PrivatePropertyName = "_" + Utils.CamelCase(this.context.DynamicPropertiesCollectionName),
                 PropertyInitializationValue = string.Format(this.DictionaryConstructor, this.StringTypeName, this.ObjectTypeName),
                 Required = false,
-                MaxLength = (int?)null
+                MaxLength = (int?)null,
+                ForeignKey = (Microsoft.OData.Edm.EdmReferentialConstraint)null
             });
         }
 
@@ -2682,7 +2691,8 @@ public abstract class ODataClientTemplate : TemplateBase
                 propertyInfo.PropertyInitializationValue,
                 useDataServiceCollection,
                 propertyInfo.Required,
-                propertyInfo.MaxLength);
+                propertyInfo.MaxLength,
+                propertyInfo.ForeignKey);
         }
     }
 
@@ -2806,6 +2816,7 @@ public abstract class ODataClientTemplate : TemplateBase
                     this.context.TargetLanguage == LanguageOption.CSharp ? "default" : "Nothing",
                     this.context.UseDataServiceCollection,
                     !isOptional,
+                    null,
                     null
                     );
             }
@@ -3665,7 +3676,7 @@ public sealed class ODataClientCSharpTemplate : ODataClientTemplate
     internal override string DataServiceActionQueryTypeName => "global::Microsoft.OData.Client.DataServiceActionQuery";
     internal override string DataServiceActionQuerySingleOfTStructureTemplate => "global::Microsoft.OData.Client.DataServiceActionQuerySingle<{0}>";
     internal override string DataServiceActionQueryOfTStructureTemplate => "global::Microsoft.OData.Client.DataServiceActionQuery<{0}>";
-    internal override string NotifyPropertyChangedModifier => "global::System.ComponentModel.INotifyPropertyChanged";
+    internal override string NotifyPropertyChangedModifier => "global::System.ComponentModel.INotifyPropertyChanged, global::System.ComponentModel.IChangeTracking, global::System.Runtime.Serialization.IDeserializationCallback";
     internal override string ClassInheritMarker => " : ";
     internal override string ParameterSeparator => ", \r\n                    ";
     internal override string KeyParameterSeparator => ", \r\n            ";
@@ -4165,12 +4176,8 @@ this.Write("Microsoft.OData.Client.Design.T4");
 
         this.Write(this.ToStringHelper.ToStringWithCulture(singletonName));
 
-        this.Write(" in the schema.\r\n        /// </summary>\r\n        [global::System.CodeDom.Compiler" +
-                ".GeneratedCodeAttribute(\"Microsoft.OData.Client.Design.T4\", \"");
-
-        this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
-
-        this.Write("\")]\r\n");
+        this.WriteLine(" in the schema.\r\n        /// </summary>");
+        this.WriteGeneratedCodeAttribute();
 
 
         if (this.context.EnableNamingAlias)
@@ -4772,7 +4779,7 @@ this.Write("Microsoft.OData.Client.Design.T4");
 
 
     }
-    internal override void WritePropertyForStructuredType(string propertyType, string originalPropertyName, string propertyName, string fixedPropertyName, string privatePropertyName, string propertyInitializationValue, bool writeOnPropertyChanged, bool writeRequiredPropertyAttribute, int? maxPropertyDataLength)
+    internal override void WritePropertyForStructuredType(string propertyType, string originalPropertyName, string propertyName, string fixedPropertyName, string privatePropertyName, string propertyInitializationValue, bool writeOnPropertyChanged, bool writeRequiredPropertyAttribute, int? maxPropertyDataLength, Microsoft.OData.Edm.EdmReferentialConstraint foreignKey)
     {
 
         this.Write("        /// <summary>\r\n        /// There are no comments for Property ");
@@ -4795,16 +4802,16 @@ this.Write("Microsoft.OData.Client.Design.T4");
             this.Write(this.ToStringHelper.ToStringWithCulture(propertyName));
             this.Write(" must be less than " + maxPropertyDataLength + " characters.\")]\r\n");
         }
+        if (foreignKey != null)
+        {
+            this.Write("        [global::System.ComponentModel.DataAnnotations.Schema.ForeignKeyAttribute(" + String.Join("+\",\"+", foreignKey.PropertyPairs.Select(x => String.Format("nameof({0})", x.DependentProperty.Name))) + ")]\r\n");
+        }
 
         if (this.context.EnableNamingAlias || IdentifierMappings.ContainsKey(originalPropertyName))
         {
-
             this.Write("        [global::Microsoft.OData.Client.OriginalNameAttribute(\"");
-
             this.Write(this.ToStringHelper.ToStringWithCulture(originalPropertyName));
-
             this.Write("\")]\r\n");
-
         }
 
         this.Write("        public ");
@@ -4819,32 +4826,35 @@ this.Write("Microsoft.OData.Client.Design.T4");
 
         this.Write(this.ToStringHelper.ToStringWithCulture(privatePropertyName));
 
-        this.Write(";\r\n            }\r\n            set\r\n            {\r\n                this.On");
-
-        this.Write(this.ToStringHelper.ToStringWithCulture(propertyName));
-
-        this.Write("Changing(value);\r\n                this.");
-
-        this.Write(this.ToStringHelper.ToStringWithCulture(privatePropertyName));
-
-        this.Write(" = value;\r\n                this.On");
-
-        this.Write(this.ToStringHelper.ToStringWithCulture(propertyName));
-
-        this.Write("Changed();\r\n");
-
+        this.WriteLine(";\r\n            }\r\n            set\r\n            {");
+        this.WriteLine("                if (this.{0} != value)\r\n                {{", this.ToStringHelper.ToStringWithCulture(privatePropertyName));
+        if (foreignKey == null)
+        {
+            this.WriteLine("                    this.On{0}Changing(value);", this.ToStringHelper.ToStringWithCulture(propertyName));
+            this.WriteLine("                    this.{0} = value;", this.ToStringHelper.ToStringWithCulture(privatePropertyName));
+            this.WriteLine("                    this.On{0}Changed();", this.ToStringHelper.ToStringWithCulture(propertyName));
+        }
+        else
+        {
+            // Allow On{FK}Changing to cancel the object change process as well.
+            this.WriteLine("                    this.On{0}Changing(value);", this.ToStringHelper.ToStringWithCulture(propertyName));
+            foreach(var reference in foreignKey.PropertyPairs)
+                this.WriteLine("                    if(value != null) this.On{0}Changing(value.{1});", this.ToStringHelper.ToStringWithCulture(reference.DependentProperty.Name), this.ToStringHelper.ToStringWithCulture(reference.PrincipalProperty.Name));
+            this.WriteLine("                    this.{0} = value;", this.ToStringHelper.ToStringWithCulture(privatePropertyName));
+            this.WriteLine("                    this.On{0}Changed();", this.ToStringHelper.ToStringWithCulture(propertyName));
+            foreach (var reference in foreignKey.PropertyPairs)
+                this.WriteLine("                    if(value != null) this.{0} = value.{1};", this.ToStringHelper.ToStringWithCulture(reference.DependentProperty.Name), this.ToStringHelper.ToStringWithCulture(reference.PrincipalProperty.Name));
+        }
 
         if (writeOnPropertyChanged)
         {
-
-            this.Write("                this.OnPropertyChanged(\"");
-
+            this.WriteLine("                    this.SetChanged();");
+            this.Write("                    this.OnPropertyChanged(\"");
             this.Write(this.ToStringHelper.ToStringWithCulture(originalPropertyName));
-
             this.Write("\");\r\n");
-
-
         }
+
+        this.WriteLine("                }");
 
         this.Write("            }\r\n        }\r\n        [global::System.CodeDom.Compiler.GeneratedCodeA" +
                 "ttribute(\"Microsoft.OData.Client.Design.T4\", \"");
@@ -4875,11 +4885,101 @@ this.Write("Microsoft.OData.Client.Design.T4");
 
         this.Write("Changed();\r\n");
 
-
     }
 
     internal override void WriteINotifyPropertyChangedImplementation()
     {
+        // Write the 'HasChanges' implementation
+        this.Write(@"
+        #region IChangeTracking
+");
+
+        this.Write(@"
+        private bool _isChanged = false;
+        /// <summary>
+        /// IChangeTracking Notification that this record has changed since the graph was hydrated 
+        /// </summary>
+        /// <remarks>Helpful because change events now only fire if the value actually changes, so we can do a shallow check to determine if there is potential changes to send back to the server</remarks>
+        /// <param name=""propertyName"">name of the property to raise the event for</param>");
+        this.WriteGeneratedCodeAttribute();
+        this.Write(@"
+        public bool IsChanged
+        {
+            get => _isChanged;
+        }
+        protected void SetChanged()
+        {
+            if(!_isChanged)
+            {
+                _isChanged = true;
+                OnPropertyChanged(nameof(IsChanged));
+            }
+        }
+");
+
+        this.Write(@"
+        /// <summary>
+        /// Resets the object’s state to unchanged by accepting the modifications.
+        /// </summary>");
+        this.WriteGeneratedCodeAttribute();
+        this.Write(@"
+        public void AcceptChanges()
+        {
+            if(_isChanged)
+            {
+                _isChanged = false;
+                OnPropertyChanged(nameof(IsChanged));
+            }
+        }
+");
+
+        this.Write(@"
+        /// <summary>
+        /// Post process this object after De-Serialization, accept the changes automatically so the record is in the unchanged state
+        /// </summary>
+        /// <remarks>This endpoint is obeyed by JSON.Net and DataContractSerializer and XmlSerializer</remarks>");
+        this.WriteGeneratedCodeAttribute();
+        this.Write(@"
+        [global::System.Runtime.Serialization.OnDeserialized]
+        private void OnDeserialized(global::System.Runtime.Serialization.StreamingContext context)
+        {
+            AcceptChanges();
+        }");
+
+        this.Write(@"
+        /// <summary>
+        /// Post process this object after De-Serialization, accept the changes automatically so the record is in the unchanged state
+        /// </summary>
+        /// <remarks>This endpoint is obeyed by dataContext.Configurations.ResponsePipeline.OnEntityMaterialized</remarks>");
+        this.WriteGeneratedCodeAttribute();
+        this.Write(@"
+        void global::System.Runtime.Serialization.IDeserializationCallback.OnDeserialization(global::System.Object sender)
+        {
+            AcceptChanges();
+        }");
+
+        this.Write(@"
+        #endregion IChangeTracking
+");
+
+        // Write INotifyPropertyChanged implementations
+        this.Write(@"
+        #region INotifyPropertyChanged
+");
+        this.Write(@"
+        /// <summary>
+        /// Provided for external callers to raise the INotifyPropertyChanged event for force UI bindings to re-evaluate
+        /// </summary>
+        /// <remarks>Necessary because change events now only fire if the value actually changes</remarks>
+        /// <param name=""propertyName"">name of the property to raise the event for</param>");
+        this.Write(@"
+        public void RaisePropertyChanged(string propertyName)
+        {
+            if(global::System.String.IsNullOrWhiteSpace(propertyName)) throw new global::System.ArgumentNullException(nameof(propertyName));
+            this.OnPropertyChanged(propertyName);
+        }
+");
+
         if (!this.context.UseAsyncDataServiceCollection)
         {
             this.Write("        /// <summary>\r\n        /// This event is raised when the value of the pro" +
@@ -4888,24 +4988,23 @@ this.Write("Microsoft.OData.Client.Design.T4");
 
             this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
 
-            this.Write(@""")]
-public event global::System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
-/// <summary>
-/// The value of the property is changed
-/// </summary>
-/// <param name=""property"">property name</param>
-[global::System.CodeDom.Compiler.GeneratedCodeAttribute(""Microsoft.OData.Client.Design.T4"", """);
+                    this.Write(@""")]
+        public event global::System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
+        /// <summary>
+        /// The value of the property is changed, raise INotifyPropertyChanged event
+        /// </summary>
+        /// <param name=""property"">property name</param>");
+            WriteGeneratedCodeAttribute();
 
-            this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
 
-            this.Write(@""")]
-protected virtual void OnPropertyChanged([global::System.Runtime.CompilerServices.CallerMemberName] string property = null)
-{
-    this.PropertyChanged?.Invoke(this, new global::System.ComponentModel.PropertyChangedEventArgs(property));
-}
-");
+            this.Write(@"
+        protected virtual void OnPropertyChanged([global::System.Runtime.CompilerServices.CallerMemberName] string property = null)
+        {
+            this.PropertyChanged?.Invoke(this, new global::System.ComponentModel.PropertyChangedEventArgs(property));
         }
-        else
+");
+                }
+                else
         {
             // based on implementation from https://stackoverflow.com/a/45422891/1690217
             // In environments that do not support async binding operations natively...
@@ -4919,7 +5018,7 @@ protected virtual void OnPropertyChanged([global::System.Runtime.CompilerService
             this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
 
             this.Write(@""")]
-private readonly global::System.Collections.Generic.List<(global::System.Threading.SynchronizationContext context, global::System.ComponentModel.PropertyChangedEventHandler handler)> _handlers = new global::System.Collections.Generic.List<(global::System.Threading.SynchronizationContext context, global::System.ComponentModel.PropertyChangedEventHandler handler)>();
+        private readonly global::System.Collections.Generic.List<(global::System.Threading.SynchronizationContext context, global::System.ComponentModel.PropertyChangedEventHandler handler)> _handlers = new global::System.Collections.Generic.List<(global::System.Threading.SynchronizationContext context, global::System.ComponentModel.PropertyChangedEventHandler handler)>();
 ");
 
             this.Write("        /// <summary>\r\n        /// This event is raised when the value of the pro" +
@@ -4927,67 +5026,71 @@ private readonly global::System.Collections.Generic.List<(global::System.Threadi
                     "er.GeneratedCodeAttribute(\"Microsoft.OData.Client.Design.T4\", \"");
             this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
             this.Write(@""")]
-public event global::System.ComponentModel.PropertyChangedEventHandler PropertyChanged
-{
-    add => _handlers.Add((global::System.Threading.SynchronizationContext.Current, value));
-    remove
-    {
-        var i = 0;
-        foreach (var item in _handlers)
+        public event global::System.ComponentModel.PropertyChangedEventHandler PropertyChanged
         {
-            if (item.handler.Equals(value))
+            add => _handlers.Add((global::System.Threading.SynchronizationContext.Current, value));
+            remove
             {
-                _handlers.RemoveAt(i);
-                break;
+                var i = 0;
+                foreach (var item in _handlers)
+                {
+                    if (item.handler.Equals(value))
+                    {
+                        _handlers.RemoveAt(i);
+                        break;
+                    }
+                    i++;
+                }
             }
-            i++;
         }
-    }
-}
 ");
 
             this.Write(@"        /// <summary>
-/// The value of the property is changed
-/// </summary>
-/// <param name=""property"">property name</param>
-[global::System.CodeDom.Compiler.GeneratedCodeAttribute(""Microsoft.OData.Client.Design.T4"", """);
+        /// The value of the property is changed
+        /// </summary>
+        /// <param name=""property"">property name</param>
+        [global::System.CodeDom.Compiler.GeneratedCodeAttribute(""Microsoft.OData.Client.Design.T4"", """);
 
             this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
             this.Write(@""")]
-protected virtual global::System.Threading.Tasks.Task OnPropertyChanged([global::System.Runtime.CompilerServices.CallerMemberName] string property = null)
-{
-    var args = new global::System.ComponentModel.PropertyChangedEventArgs(property);
-    var tasks = _handlers
-        .GroupBy(x => x.context, x => x.handler)
-        .Select(g => invokeContext(g.Key, g));
-    return global::System.Threading.Tasks.Task.WhenAll(tasks);
+        protected virtual global::System.Threading.Tasks.Task OnPropertyChanged([global::System.Runtime.CompilerServices.CallerMemberName] string property = null)
+        {
+            var args = new global::System.ComponentModel.PropertyChangedEventArgs(property);
+            var tasks = _handlers
+                .GroupBy(x => x.context, x => x.handler)
+                .Select(g => invokeContext(g.Key, g));
+            return global::System.Threading.Tasks.Task.WhenAll(tasks);
 
-    global::System.Threading.Tasks.Task invokeContext(global::System.Threading.SynchronizationContext context, global::System.Collections.Generic.IEnumerable<global::System.ComponentModel.PropertyChangedEventHandler> l)
-    {
-        if (context != null)
-        {
-            var tcs = new global::System.Threading.Tasks.TaskCompletionSource<bool>();
-            context.Post(o =>
+            global::System.Threading.Tasks.Task invokeContext(global::System.Threading.SynchronizationContext context, global::System.Collections.Generic.IEnumerable<global::System.ComponentModel.PropertyChangedEventHandler> l)
             {
-                try { invokeHandlers(l); tcs.TrySetResult(true); }
-                catch (global::System.Exception e) { tcs.TrySetException(e); }
-            }, null);
-            return tcs.Task;
+                if (context != null)
+                {
+                    var tcs = new global::System.Threading.Tasks.TaskCompletionSource<bool>();
+                    context.Post(o =>
+                    {
+                        try { invokeHandlers(l); tcs.TrySetResult(true); }
+                        catch (global::System.Exception e) { tcs.TrySetException(e); }
+                    }, null);
+                    return tcs.Task;
+                }
+                else
+                {
+                    return global::System.Threading.Tasks.Task.Run(() => invokeHandlers(l));
+                }
+            }
+            void invokeHandlers(global::System.Collections.Generic.IEnumerable<global::System.ComponentModel.PropertyChangedEventHandler> l)
+            {
+                foreach (var h in l)
+                    h(this, args);
+            }
         }
-        else
-        {
-            return global::System.Threading.Tasks.Task.Run(() => invokeHandlers(l));
-        }
-    }
-    void invokeHandlers(global::System.Collections.Generic.IEnumerable<global::System.ComponentModel.PropertyChangedEventHandler> l)
-    {
-        foreach (var h in l)
-            h(this, args);
-    }
-}
 ");
 
         }
+
+        this.Write(@"
+#endregion INotifyPropertyChanged
+");
 
     }
 
@@ -7311,7 +7414,7 @@ this.Write("\r\n        End Function\r\n");
 
     }
 
-    internal override void WritePropertyForStructuredType(string propertyType, string originalPropertyName, string propertyName, string fixedPropertyName, string privatePropertyName, string propertyInitializationValue, bool writeOnPropertyChanged, bool writeRequiredPropertyAttribute, int? maxPropertyDataLength)
+    internal override void WritePropertyForStructuredType(string propertyType, string originalPropertyName, string propertyName, string fixedPropertyName, string privatePropertyName, string propertyInitializationValue, bool writeOnPropertyChanged, bool writeRequiredPropertyAttribute, int? maxPropertyDataLength, Microsoft.OData.Edm.EdmReferentialConstraint foreignKey)
     {
 
 this.Write("        \'\'\'<summary>\r\n        \'\'\'There are no comments for Property ");
@@ -7352,6 +7455,10 @@ this.Write(" is required.\")>  _\r\n");
             this.Write(this.ToStringHelper.ToStringWithCulture(propertyName));
             this.Write(" must be less than " + maxPropertyDataLength + " characters.\")> _\r\n");
         }
+        if (foreignKey != null)
+        {
+this.Write("        <global.System.ComponentModel.DataAnnotations.Schema.ForeignKeyAttribute(\"" + String.Join(",", foreignKey.PropertyPairs.Select(x => x.DependentProperty.Name)) + "\")> _\r\n");
+        }
 
 this.Write("        Public Property ");
 
@@ -7365,20 +7472,25 @@ this.Write("\r\n            Get\r\n                Return Me.");
 
 this.Write(this.ToStringHelper.ToStringWithCulture(privatePropertyName));
 
-this.Write("\r\n            End Get\r\n            Set\r\n                Me.On");
+this.Write("\r\n            End Get\r\n            Set\r\n");
 
-this.Write(this.ToStringHelper.ToStringWithCulture(propertyName));
-
-this.Write("Changing(value)\r\n                Me.");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(privatePropertyName));
-
-this.Write(" = value\r\n                Me.On");
-
-this.Write(this.ToStringHelper.ToStringWithCulture(propertyName));
-
-this.Write("Changed\r\n");
-
+        if (foreignKey == null)
+        {
+            this.WriteLine("                Me.On{0}Changing(value)", this.ToStringHelper.ToStringWithCulture(propertyName));
+            this.WriteLine("                Me.{0} = value", this.ToStringHelper.ToStringWithCulture(privatePropertyName));
+            this.WriteLine("                Me.On{0}Changed()", this.ToStringHelper.ToStringWithCulture(propertyName));
+        }
+        else
+        {
+            // Allow On{FK}Changing to cancel the object change process as well.
+            this.WriteLine("                Me.On{0}Changing(value)", this.ToStringHelper.ToStringWithCulture(propertyName));
+            foreach (var reference in foreignKey.PropertyPairs)
+                this.WriteLine("                if(value != null) \r\n                    Me.On{0}Changing(value.{1}) \r\n                End If", this.ToStringHelper.ToStringWithCulture(reference.DependentProperty.Name), this.ToStringHelper.ToStringWithCulture(reference.PrincipalProperty.Name));
+            this.WriteLine("                Me.{0} = value", this.ToStringHelper.ToStringWithCulture(privatePropertyName));
+            this.WriteLine("                Me.On{0}Changed()", this.ToStringHelper.ToStringWithCulture(propertyName));
+            foreach (var reference in foreignKey.PropertyPairs)
+                this.WriteLine("                if(value != null) \r\n                    Me.{0} = value.{1} \r\n                End If", this.ToStringHelper.ToStringWithCulture(reference.DependentProperty.Name), this.ToStringHelper.ToStringWithCulture(reference.PrincipalProperty.Name));
+        }
 
         if (writeOnPropertyChanged)
         {

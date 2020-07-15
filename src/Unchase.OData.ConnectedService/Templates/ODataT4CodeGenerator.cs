@@ -4954,7 +4954,7 @@ public event global::System.ComponentModel.PropertyChangedEventHandler PropertyC
 
             this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
             this.Write(@""")]
-protected global::System.Threading.Tasks.Task OnPropertyChanged([global::System.Runtime.CompilerServices.CallerMemberName] string property = null)
+protected virtual global::System.Threading.Tasks.Task OnPropertyChanged([global::System.Runtime.CompilerServices.CallerMemberName] string property = null)
 {
     var args = new global::System.ComponentModel.PropertyChangedEventArgs(property);
     var tasks = _handlers

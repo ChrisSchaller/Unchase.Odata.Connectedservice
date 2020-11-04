@@ -25,7 +25,9 @@ namespace Unchase.OData.ConnectedService.Templates
     using Microsoft.OData.Edm.Vocabularies.Community.V1;
     using System.Text;
     using System.Net;
-    
+    using System.Data.Metadata.Edm;
+    using Microsoft.VisualStudio.Debugger.Interop;
+
     /// <summary>
     /// Class to produce the template output
     /// </summary>
@@ -3379,11 +3381,11 @@ internal static class Utils
         {
             if (property is IEdmStructuralProperty structuredProperty)
             {
+                bool isCSharpTemplate = clientTemplate is ODataClientCSharpTemplate;
+                string valueClrType = GetClrTypeName(edmTypeReference, useDataServiceCollection, clientTemplate, context);
                 if (!string.IsNullOrEmpty(structuredProperty.DefaultValueString))
                 {
-                    string valueClrType = GetClrTypeName(edmTypeReference, useDataServiceCollection, clientTemplate, context);
                     string defaultValue = structuredProperty.DefaultValueString;
-                    bool isCSharpTemplate = clientTemplate is ODataClientCSharpTemplate;
                     if (edmTypeReference.Definition.TypeKind == EdmTypeKind.Enum)
                     {
                         var enumValues = defaultValue.Split(',');
@@ -3475,12 +3477,47 @@ internal static class Utils
                     {
                         defaultValue = string.Format(clientTemplate.GeoTypeInitializePattern, valueClrType, defaultValue);
                     }
-
+                    //else
+                    //{
+                    //    Debugger.Launch();
+                    //    Debugger.Break();
+                    //}
                     return defaultValue;
                 }
                 else
                 {
                     // doesn't have a default value 
+
+                    // We can't pass "null" complex types to the service, they must always have a value, so add one by default to
+                    // prevent all that null checking... but they must be nullable to support other conventions...
+                    // for almost all intents they are mutable structs, which we are taught are "evil" so that is why they are not actual structs.
+                    if (isCSharpTemplate)
+                    {
+                        if(structuredProperty.Type.IsComplex())
+                        {
+                            // known dodgy types, skip this
+                            var skipTypes = new[]
+                            {
+                                "GSO.Care.HttpContent"
+                            };
+
+                            string typeFullName = structuredProperty.Type.FullName();
+                            if (skipTypes.Contains(typeFullName))
+                            {
+                                return null;
+                            }
+                            else if (structuredProperty.Type.FullName().EndsWith("GSO.Care.Interval"))
+                            {
+                                // known common complex type
+                                return "new GSO.Care.Interval { Type = IntervalType.None }";
+                            }
+                            else
+                            {
+                                return $"new {structuredProperty.Type.FullName()}()";
+                            }
+                        }
+                    }
+
                     return null;
                 }
             }
@@ -4640,6 +4677,8 @@ this.Write("Microsoft.OData.Client.Design.T4");
         if (this.context.UseDataServiceCollection && baseTypeName.Contains("IRevertibleChangeTracking"))
         {
             this.Write($@"        #region IHasChanged
+        [System.Runtime.Serialization.IgnoreDataMember]
+        [FormMetaData]
         ChangeTracker IHasChanged.Values {{ get => __Values; }}
         protected readonly ChangeTracker __Values;
         public bool HasChanged<TProperty>(global::System.Linq.Expressions.Expression<global::System.Func<{this.ToStringHelper.ToStringWithCulture(typeName)}, TProperty>> propertyExpression)
@@ -4656,7 +4695,10 @@ this.Write("Microsoft.OData.Client.Design.T4");
         public {this.ToStringHelper.ToStringWithCulture(typeName)}()
         {{
             __Values = new ChangeTracker(RaisePropertyChanged, SetChanged);
+            Init();
         }}
+
+        partial void Init();
 ");
 
         }
@@ -4842,6 +4884,8 @@ this.Write("Microsoft.OData.Client.Design.T4");
 
         this.WriteLine(");\r\n            }\r\n            set\r\n            {");
         this.WriteLine("                this.__Values.EnsureField(ref {0});", this.ToStringHelper.ToStringWithCulture(privatePropertyName));
+        this.WriteLine("                var wasChanged = this.{0}.IsChanged;", this.ToStringHelper.ToStringWithCulture(privatePropertyName));
+
         this.WriteLine("                if (!this.{0}.Equals(this.{0}.GetValue(), value))\r\n                {{", this.ToStringHelper.ToStringWithCulture(privatePropertyName));
         if (foreignKey == null)
         {
@@ -4871,41 +4915,30 @@ this.Write("Microsoft.OData.Client.Design.T4");
 
         this.WriteLine("                }");
 
-        this.Write("            }\r\n        }\r\n        [global::System.CodeDom.Compiler.GeneratedCodeA" +
-                "ttribute(\"Microsoft.OData.Client.Design.T4\", \"");
+        if (writeOnPropertyChanged)
+        {
+            this.WriteLine("                if (this.{0}.IsChanged != wasChanged)", this.ToStringHelper.ToStringWithCulture(privatePropertyName));
+            this.WriteLine("                    this.OnPropertyChanged(nameof({0}HasChanged));", this.ToStringHelper.ToStringWithCulture(propertyName));
+        }
 
-        this.Write(this.ToStringHelper.ToStringWithCulture(T4Version));
 
-        this.Write("\")]\r\n        private ValueTracker<");
-        this.Write(this.ToStringHelper.ToStringWithCulture(propertyType));
-        this.Write("> ");
+        this.WriteLine("            }\r\n        }");
 
-        this.Write(this.ToStringHelper.ToStringWithCulture(privatePropertyName));
+        this.WriteLine("        private ValueTracker<{0}> {1} = new ValueTracker<{0}>({2});", this.ToStringHelper.ToStringWithCulture(propertyType), this.ToStringHelper.ToStringWithCulture(privatePropertyName), this.ToStringHelper.ToStringWithCulture(propertyInitializationValue != null ? propertyInitializationValue : string.Empty));
 
-        this.Write(" = new ValueTracker<");
-        this.Write(this.ToStringHelper.ToStringWithCulture(propertyType));
-        this.Write(">(");
+        this.WriteLine("        partial void On{0}Changing({1} value);", this.ToStringHelper.ToStringWithCulture(propertyName), this.ToStringHelper.ToStringWithCulture(propertyType));
 
-        this.Write(this.ToStringHelper.ToStringWithCulture(propertyInitializationValue != null ? propertyInitializationValue : string.Empty));
+        this.WriteLine("        partial void On{0}Changed();", this.ToStringHelper.ToStringWithCulture(propertyName));
 
-        this.Write(");\r\n        partial void On");
-
-        this.Write(this.ToStringHelper.ToStringWithCulture(propertyName));
-
-        this.Write("Changing(");
-
-        this.Write(this.ToStringHelper.ToStringWithCulture(propertyType));
-
-        this.Write(" value);\r\n        partial void On");
-
-        this.Write(this.ToStringHelper.ToStringWithCulture(propertyName));
-
-        this.Write("Changed();\r\n");
+        this.WriteGeneratedCodeAttribute();
+        this.WriteLine("        [FormMetaData]");
+        this.WriteLine("        [System.Runtime.Serialization.IgnoreDataMember]");
+        this.WriteLine("        public bool {0}HasChanged {{ get => {1}.IsChanged; }}", this.ToStringHelper.ToStringWithCulture(propertyName), this.ToStringHelper.ToStringWithCulture(privatePropertyName));
 
     }
 
 
-    internal override void WriteINotifyPropertyChangedImplementation()
+            internal override void WriteINotifyPropertyChangedImplementation()
     {
         // Write the 'HasChanges' implementation
         this.Write(@"

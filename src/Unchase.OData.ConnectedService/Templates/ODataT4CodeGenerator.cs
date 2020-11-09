@@ -1748,11 +1748,57 @@ public abstract class ODataClientTemplate : TemplateBase
             if (this.context.EnableNamingAlias)
             {
                 camelCaseEntitySetName = Customization.CustomizeNaming(camelCaseEntitySetName);
-        }
+            }
 
             this.WriteContextAddToEntitySetMethod(camelCaseEntitySetName, entitySet.Name, GetFixedName(entitySetElementTypeName), parameterName);
         }
 
+                #region generic Attach method
+                // write generic Attach method
+                this.Write(@"
+
+        /// <summary>
+        /// Notifies the Microsoft.OData.Client.DataServiceContext to start tracking the
+        /// specified resource and supplies the location of the resource within the specified resource set.
+        /// </summary>
+        /// <typeparam name=""T"">Type of the item to attach</typeparam>
+        /// <param name=""item"">The resource to be tracked by the Microsoft.OData.Client.DataServiceContext, The resource is attached in the Unchanged state.</param>
+        /// <remarks>It does not follow the object graph and attach related objects.</remarks>
+        public void Attach<TDataItem>(TDataItem item)
+             where TDataItem : Microsoft.OData.Client.BaseEntityType
+        {
+            switch (item)
+            {
+");
+        foreach (IEdmEntitySet entitySet in container.EntitySets())
+        {
+            IEdmEntityType entitySetElementType = entitySet.EntityType();
+            
+            string entitySetElementTypeName = GetElementTypeName(entitySetElementType, container);
+
+            UniqueIdentifierService uniqueIdentifierService = new UniqueIdentifierService(/*IsLanguageCaseSensitive*/true);
+            string parameterName = GetFixedName(uniqueIdentifierService.GetUniqueParameterName(entitySetElementType.Name));
+
+            string camelCaseEntitySetName = entitySet.Name;
+            if (this.context.EnableNamingAlias)
+            {
+                camelCaseEntitySetName = Customization.CustomizeNaming(camelCaseEntitySetName);
+            }
+
+            this.Write($@"                case Type {camelCaseEntitySetName} when {camelCaseEntitySetName} == typeof({GetFixedName(entitySetElementTypeName)}):
+                    this.AttachTo(""{camelCaseEntitySetName}"", item);
+                    break;
+");
+        }
+        // END - write generic Attach method
+        this.Write(@"
+
+                default:
+                    throw new NotImplementedException(""Have not coded for Attach type: "" + typeof(TDataItem).Name);
+            }
+        }
+");
+        #endregion generic Attach method
         foreach (IEdmSingleton singleton in container.Singletons())
         {
             IEdmEntityType singletonElementType = singleton.EntityType();

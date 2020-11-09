@@ -1362,7 +1362,7 @@ public abstract class ODataClientTemplate : TemplateBase
     internal abstract void WriteParameterNullCheckForStaticCreateMethod(string parameterName);
     internal abstract void WritePropertyValueAssignmentForStaticCreateMethod(string instanceName, string propertyName, string parameterName);
     internal abstract void WriteMethodEndForStaticCreateMethod(string instanceName);
-    internal abstract void WritePropertyForStructuredType(string propertyType, string originalPropertyName, string propertyName, string fixedPropertyName, string privatePropertyName, string propertyInitializationValue, bool writeOnPropertyChanged, bool writeRequiredPropertyAttribute, int? maxPropertyDataLength, Microsoft.OData.Edm.EdmReferentialConstraint foreignKey);
+    internal abstract void WritePropertyForStructuredType(string propertyType, string originalPropertyName, string propertyName, string fixedPropertyName, string privatePropertyName, string propertyInitializationValue, bool writeOnPropertyChanged, bool writeRequiredPropertyAttribute, int? maxPropertyDataLength, Microsoft.OData.Edm.EdmReferentialConstraint foreignKey, bool isComplex);
     internal abstract void WriteINotifyPropertyChangedImplementation();
     internal abstract void WriteClassEndForStructuredType();
     internal abstract void WriteNamespaceEnd();
@@ -2142,7 +2142,7 @@ public abstract class ODataClientTemplate : TemplateBase
     internal void WriteComplexType(IEdmComplexType complexType, Dictionary<IEdmStructuredType, List<IEdmOperation>> boundOperationsMap)
     {
         this.WriteSummaryCommentForStructuredType(this.context.EnableNamingAlias ? Customization.CustomizeNaming(complexType.Name) : complexType.Name);
-        this.WriteStructuredTypeDeclaration(complexType, string.Empty);
+        this.WriteStructuredTypeDeclaration(complexType, null);
         this.SetPropertyIdentifierMappingsIfNameConflicts(complexType.Name, complexType);
         this.WriteTypeStaticCreateMethod(complexType.Name, complexType);
         this.WritePropertiesForStructuredType(complexType.DeclaredProperties, complexType.IsOpen);
@@ -2338,6 +2338,11 @@ public abstract class ODataClientTemplate : TemplateBase
                     if (this.context.TargetLanguage == LanguageOption.CSharp)
                     {
                         baseTypeName += string.IsNullOrEmpty(baseTypeName) ? this.ClassInheritMarker : ", ";
+                        if (structuredType.TypeKind == EdmTypeKind.Complex)
+                        {
+                            // SDSS ValueChange needs to handle ComplexTypes differently
+                            baseTypeName += "IComplexType, ";
+                        }
                     }
 
                     baseTypeName += this.NotifyPropertyChangedModifier;
@@ -2656,7 +2661,8 @@ public abstract class ODataClientTemplate : TemplateBase
                     PropertyInitializationValue = Utils.GetPropertyInitializationValue(property, useDataServiceCollection, this, this.context),
                     Required = false,
                     MaxLength = maxLength,
-                    ForeignKey = foreignKey
+                    ForeignKey = foreignKey,
+                    IsComplex = property.Type.IsComplex()
                 };
         }).ToList();
 
@@ -2672,7 +2678,8 @@ public abstract class ODataClientTemplate : TemplateBase
                 PropertyInitializationValue = string.Format(this.DictionaryConstructor, this.StringTypeName, this.ObjectTypeName),
                 Required = false,
                 MaxLength = (int?)null,
-                ForeignKey = (Microsoft.OData.Edm.EdmReferentialConstraint)null
+                ForeignKey = (Microsoft.OData.Edm.EdmReferentialConstraint)null,
+                IsComplex = false // ? maybe this is true ?
             });
         }
 
@@ -2694,7 +2701,8 @@ public abstract class ODataClientTemplate : TemplateBase
                 useDataServiceCollection,
                 propertyInfo.Required,
                 propertyInfo.MaxLength,
-                propertyInfo.ForeignKey);
+                propertyInfo.ForeignKey,
+                propertyInfo.IsComplex);
         }
     }
 
@@ -2819,7 +2827,8 @@ public abstract class ODataClientTemplate : TemplateBase
                     this.context.UseDataServiceCollection,
                     !isOptional,
                     null,
-                    null
+                    null,
+                    parameter.Type.IsComplex()
                     );
             }
 
@@ -4835,7 +4844,7 @@ this.Write("Microsoft.OData.Client.Design.T4");
 
 
     }
-    internal override void WritePropertyForStructuredType(string propertyType, string originalPropertyName, string propertyName, string fixedPropertyName, string privatePropertyName, string propertyInitializationValue, bool writeOnPropertyChanged, bool writeRequiredPropertyAttribute, int? maxPropertyDataLength, Microsoft.OData.Edm.EdmReferentialConstraint foreignKey)
+    internal override void WritePropertyForStructuredType(string propertyType, string originalPropertyName, string propertyName, string fixedPropertyName, string privatePropertyName, string propertyInitializationValue, bool writeOnPropertyChanged, bool writeRequiredPropertyAttribute, int? maxPropertyDataLength, Microsoft.OData.Edm.EdmReferentialConstraint foreignKey, bool isComplexType)
     {
 
         this.Write("        /// <summary>\r\n        /// There are no comments for Property ");
@@ -4923,8 +4932,10 @@ this.Write("Microsoft.OData.Client.Design.T4");
 
 
         this.WriteLine("            }\r\n        }");
-
-        this.WriteLine("        private ValueTracker<{0}> {1} = new ValueTracker<{0}>({2});", this.ToStringHelper.ToStringWithCulture(propertyType), this.ToStringHelper.ToStringWithCulture(privatePropertyName), this.ToStringHelper.ToStringWithCulture(propertyInitializationValue != null ? propertyInitializationValue : string.Empty));
+        if (isComplexType)
+            this.WriteLine("        private ComplexValueTracker<{0}> {1} = new ComplexValueTracker<{0}>({2});", this.ToStringHelper.ToStringWithCulture(propertyType), this.ToStringHelper.ToStringWithCulture(privatePropertyName), this.ToStringHelper.ToStringWithCulture(propertyInitializationValue != null ? propertyInitializationValue : string.Empty));
+        else
+            this.WriteLine("        private ValueTracker<{0}> {1} = new ValueTracker<{0}>({2});", this.ToStringHelper.ToStringWithCulture(propertyType), this.ToStringHelper.ToStringWithCulture(privatePropertyName), this.ToStringHelper.ToStringWithCulture(propertyInitializationValue != null ? propertyInitializationValue : string.Empty));
 
         this.WriteLine("        partial void On{0}Changing({1} value);", this.ToStringHelper.ToStringWithCulture(propertyName), this.ToStringHelper.ToStringWithCulture(propertyType));
 
@@ -7481,7 +7492,7 @@ this.Write("\r\n        End Function\r\n");
 
     }
 
-    internal override void WritePropertyForStructuredType(string propertyType, string originalPropertyName, string propertyName, string fixedPropertyName, string privatePropertyName, string propertyInitializationValue, bool writeOnPropertyChanged, bool writeRequiredPropertyAttribute, int? maxPropertyDataLength, Microsoft.OData.Edm.EdmReferentialConstraint foreignKey)
+            internal override void WritePropertyForStructuredType(string propertyType, string originalPropertyName, string propertyName, string fixedPropertyName, string privatePropertyName, string propertyInitializationValue, bool writeOnPropertyChanged, bool writeRequiredPropertyAttribute, int? maxPropertyDataLength, Microsoft.OData.Edm.EdmReferentialConstraint foreignKey, bool isComplex)
     {
 
 this.Write("        \'\'\'<summary>\r\n        \'\'\'There are no comments for Property ");

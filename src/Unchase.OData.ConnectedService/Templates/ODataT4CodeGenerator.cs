@@ -1882,7 +1882,7 @@ public abstract class ODataClientTemplate : TemplateBase
         public void Attach<TDataItem>(TDataItem item)
              where TDataItem : Microsoft.OData.Client.BaseEntityType
         {
-            switch (item)
+            switch (typeof(T))
             {
 ");
         foreach (IEdmEntitySet entitySet in container.EntitySets())
@@ -1900,7 +1900,7 @@ public abstract class ODataClientTemplate : TemplateBase
                 camelCaseEntitySetName = Customization.CustomizeNaming(camelCaseEntitySetName);
             }
 
-            this.Write($@"                case Type {camelCaseEntitySetName} when {camelCaseEntitySetName} == typeof({GetFixedName(entitySetElementTypeName)}):
+            this.Write($@"                case Type t when t == typeof({GetFixedName(entitySetElementTypeName)}):
                     this.AttachTo(""{camelCaseEntitySetName}"", item);
                     break;
 ");
@@ -3890,10 +3890,10 @@ this.Write("Microsoft.OData.Client.Design.T4");
 
         this.Write("\r\n");
 
+        this.WriteLine("using System;");
         if (this.context.UseAsyncDataServiceCollection)
         {
-            this.Write("using System.Linq;");
-            this.Write("\r\n");
+            this.WriteLine("using System.Linq;");
         }
 
     }

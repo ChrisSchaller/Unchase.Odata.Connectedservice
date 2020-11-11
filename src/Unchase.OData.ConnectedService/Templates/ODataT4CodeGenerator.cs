@@ -1882,7 +1882,7 @@ public abstract class ODataClientTemplate : TemplateBase
         public void Attach<TDataItem>(TDataItem item)
              where TDataItem : Microsoft.OData.Client.BaseEntityType
         {
-            switch (typeof(T))
+            switch (typeof(TDataItem))
             {
 ");
         foreach (IEdmEntitySet entitySet in container.EntitySets())

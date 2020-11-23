@@ -5108,7 +5108,7 @@ this.Write("Microsoft.OData.Client.Design.T4");
         /// <remarks>Necessary because change events now only fire if the value actually changes and for nested template binding scenarios where x:Bind won't work</remarks>
         public void RaiseAllPropertiesChanged()
         {
-            foreach(var key in ((IChangeTrackerCache)this).Keys)
+            foreach (var key in ((IChangeTrackerCache)this).Keys)
                 this.OnPropertyChanged(key);
         }
 

@@ -5137,8 +5137,8 @@ this.Write("Microsoft.OData.Client.Design.T4");
             this.PropertyChanged?.Invoke(this, new global::System.ComponentModel.PropertyChangedEventArgs(property));
         }
 ");
-                }
-                else
+        }
+        else
         {
             // based on implementation from https://stackoverflow.com/a/45422891/1690217
             // In environments that do not support async binding operations natively...

@@ -5095,13 +5095,23 @@ this.Write("Microsoft.OData.Client.Design.T4");
         /// Provided for external callers to raise the INotifyPropertyChanged event for force UI bindings to re-evaluate
         /// </summary>
         /// <remarks>Necessary because change events now only fire if the value actually changes</remarks>
-        /// <param name=""propertyName"">name of the property to raise the event for</param>");
-        this.Write(@"
+        /// <param name=""propertyName"">name of the property to raise the event for</param>
         public void RaisePropertyChanged(string propertyName)
         {
             if(global::System.String.IsNullOrWhiteSpace(propertyName)) throw new global::System.ArgumentNullException(nameof(propertyName));
             this.OnPropertyChanged(propertyName);
         }
+
+        /// <summary>
+        /// Provided for external callers to raise the INotifyPropertyChanged event for all properties on this object to force UI bindings to re-evaluate
+        /// </summary>
+        /// <remarks>Necessary because change events now only fire if the value actually changes and for nested template binding scenarios where x:Bind won't work</remarks>
+        public void RaiseAllPropertiesChanged()
+        {
+            foreach(var key in ((IChangeTrackerCache)this).Keys)
+                this.OnPropertyChanged(key);
+        }
+
 ");
 
         if (!this.context.UseAsyncDataServiceCollection)

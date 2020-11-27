@@ -4371,7 +4371,7 @@ this.Write("Microsoft.OData.Client.Design.T4");
 
         this.Write(this.ToStringHelper.ToStringWithCulture(parameterName));
 
-        this.Write(")\r\n        {\r\n            base.AddObject(\"");
+        this.Write(")\r\n        {\r\n            this.AddObject(\"");
 
         this.Write(this.ToStringHelper.ToStringWithCulture(originalEntitySetName));
 
@@ -7151,7 +7151,7 @@ this.Write(" As ");
 
 this.Write(this.ToStringHelper.ToStringWithCulture(typeName));
 
-this.Write(")\r\n            MyBase.AddObject(\"");
+this.Write(")\r\n            Me.AddObject(\"");
 
 this.Write(this.ToStringHelper.ToStringWithCulture(originalEntitySetName));
 

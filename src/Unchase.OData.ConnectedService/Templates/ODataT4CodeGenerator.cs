@@ -6359,7 +6359,7 @@ this.Write("Microsoft.OData.Client.Design.T4");
             parameterNames = temp.ToArray();
         }
 
-        this.Write(")\r\n        {\r\n            return this." + this.ToStringHelper.ToStringWithCulture(functionName) + "(" + String.Join(", ", parameterNames.Select(x => "request." + x)));
+        this.Write(")\r\n        {\r\n            return _source." + this.ToStringHelper.ToStringWithCulture(functionName) + "(" + String.Join(", ", parameterNames.Select(x => "request." + x)));
         this.Write(");\r\n        }\r\n");
 
     }

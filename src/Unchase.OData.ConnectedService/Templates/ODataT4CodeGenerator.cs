@@ -4938,7 +4938,7 @@ this.Write("Microsoft.OData.Client.Design.T4");
         this.Write(this.ToStringHelper.ToStringWithCulture(privatePropertyName));
 
         this.WriteLine(");\r\n            }\r\n            set\r\n            {");
-        this.WriteLine("                this.__Values.EnsureField(ref {0});", this.ToStringHelper.ToStringWithCulture(privatePropertyName));
+        this.WriteLine("                var firstTime = this.__Values.InitField(ref {0});", this.ToStringHelper.ToStringWithCulture(privatePropertyName));
         this.WriteLine("                var wasChanged = this.{0}.IsChanged;", this.ToStringHelper.ToStringWithCulture(privatePropertyName));
 
         this.WriteLine("                if (!this.{0}.Equals(this.{0}.GetValue(), value))\r\n                {{", this.ToStringHelper.ToStringWithCulture(privatePropertyName));
@@ -4972,7 +4972,7 @@ this.Write("Microsoft.OData.Client.Design.T4");
 
         if (writeOnPropertyChanged)
         {
-            this.WriteLine("                if (this.{0}.IsChanged != wasChanged)", this.ToStringHelper.ToStringWithCulture(privatePropertyName));
+            this.WriteLine("                if (firstTime || this.{0}.IsChanged != wasChanged)", this.ToStringHelper.ToStringWithCulture(privatePropertyName));
             this.WriteLine("                    this.OnPropertyChanged(nameof({0}HasChanged));", this.ToStringHelper.ToStringWithCulture(propertyName));
         }
 

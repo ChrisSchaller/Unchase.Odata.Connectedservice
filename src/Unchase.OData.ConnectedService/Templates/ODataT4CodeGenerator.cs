@@ -1437,6 +1437,8 @@ public abstract class ODataClientTemplate : TemplateBase
 
     internal void WriteNamespace(string fullNamespace)
     {
+        //System.Diagnostics.Debugger.Launch();
+
         this.WriteNamespaceStart(this.context.GetPrefixedNamespace(fullNamespace, this, true, false));
 
         IEdmSchemaElement[] schemaElements = this.context.GetSchemaElements(fullNamespace).ToArray();
@@ -4938,7 +4940,7 @@ this.Write("Microsoft.OData.Client.Design.T4");
         this.Write(this.ToStringHelper.ToStringWithCulture(privatePropertyName));
 
         this.WriteLine(");\r\n            }\r\n            set\r\n            {");
-        this.WriteLine("                this.__Values.EnsureField(ref {0});", this.ToStringHelper.ToStringWithCulture(privatePropertyName));
+        this.WriteLine("                var firstTime = this.__Values.InitField(ref {0});", this.ToStringHelper.ToStringWithCulture(privatePropertyName));
         this.WriteLine("                var wasChanged = this.{0}.IsChanged;", this.ToStringHelper.ToStringWithCulture(privatePropertyName));
 
         this.WriteLine("                if (!this.{0}.Equals(this.{0}.GetValue(), value))\r\n                {{", this.ToStringHelper.ToStringWithCulture(privatePropertyName));
@@ -4972,7 +4974,7 @@ this.Write("Microsoft.OData.Client.Design.T4");
 
         if (writeOnPropertyChanged)
         {
-            this.WriteLine("                if (this.{0}.IsChanged != wasChanged)", this.ToStringHelper.ToStringWithCulture(privatePropertyName));
+            this.WriteLine("                if (firstTime || this.{0}.IsChanged != wasChanged)", this.ToStringHelper.ToStringWithCulture(privatePropertyName));
             this.WriteLine("                    this.OnPropertyChanged(nameof({0}HasChanged));", this.ToStringHelper.ToStringWithCulture(propertyName));
         }
 
@@ -5439,7 +5441,7 @@ this.Write("Microsoft.OData.Client.Design.T4");
 
 
         }
-
+        this.WriteGeneratedCodeAttribute();
         this.Write("        public ");
 
         this.Write(this.ToStringHelper.ToStringWithCulture(isReturnEntity ? returnTypeNameWithSingleSuffix : string.Format(this.DataServiceQuerySingleStructureTemplate, returnTypeName)));
@@ -5552,6 +5554,8 @@ this.Write("Microsoft.OData.Client.Design.T4");
 
 
         }
+
+        this.WriteGeneratedCodeAttribute();
 
         this.Write("        public ");
 
@@ -5675,6 +5679,7 @@ this.Write("Microsoft.OData.Client.Design.T4");
 
         }
 
+        this.WriteGeneratedCodeAttribute();
         this.Write("        public ");
 
         this.Write(this.ToStringHelper.ToStringWithCulture(hideBaseMethod ? this.OverloadsModifier : string.Empty));
@@ -5796,6 +5801,7 @@ this.Write("Microsoft.OData.Client.Design.T4");
 
         }
 
+        this.WriteGeneratedCodeAttribute();
         this.Write("        public ");
 
         this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));
@@ -5890,6 +5896,7 @@ this.Write("Microsoft.OData.Client.Design.T4");
 
         }
 
+        this.WriteGeneratedCodeAttribute();
         this.Write("        public ");
 
         this.Write(this.ToStringHelper.ToStringWithCulture(hideBaseMethod ? this.OverloadsModifier : string.Empty));
@@ -6140,6 +6147,7 @@ this.Write("Microsoft.OData.Client.Design.T4");
 
         }
 
+        this.WriteGeneratedCodeAttribute();
         this.Write("        public static ");
 
         this.Write(this.ToStringHelper.ToStringWithCulture(isReturnEntity ? returnTypeNameWithSingleSuffix : string.Format(this.DataServiceQuerySingleStructureTemplate, returnTypeName)));
@@ -6268,6 +6276,7 @@ this.Write("Microsoft.OData.Client.Design.T4");
 
         }
 
+        this.WriteGeneratedCodeAttribute();
         this.Write("        public static global::Microsoft.OData.Client.DataServiceQuery<");
 
         this.Write(this.ToStringHelper.ToStringWithCulture(returnTypeName));

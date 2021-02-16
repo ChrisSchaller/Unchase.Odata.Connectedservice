@@ -5060,6 +5060,7 @@ this.Write("Microsoft.OData.Client.Design.T4");
         private void OnDeserialized(global::System.Runtime.Serialization.StreamingContext context)
         {
             AcceptChanges();
+            OnDeserialization(context);
         }");
 
         this.Write(@"
@@ -5072,7 +5073,16 @@ this.Write("Microsoft.OData.Client.Design.T4");
         void global::System.Runtime.Serialization.IDeserializationCallback.OnDeserialization(global::System.Object sender)
         {
             AcceptChanges();
-        }");
+            OnDeserialization(sender);
+        }
+        /// <summary>
+        /// Partial classes can implement custom logic to execute once the Entity has been materialized (after De-Serialization)
+        /// You may need to call AcceptChanges() if you make any data changes during this implementation.
+        /// </summary>
+        /// <param name=""sender"">The owner of the process that materialized this record, this may be the container or the serialization context</param>
+        /// <remarks>This endpoint is obeyed by JSON.Net, DataContractSerializer, XMLSerializer and OnEntityMaterialized (OData.Client)</remarks>
+        partial void OnDeserialization(object sender);
+");
 
         this.Write(@"
         #endregion IChangeTracking
